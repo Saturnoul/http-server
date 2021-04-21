@@ -3,11 +3,20 @@
 //
 
 #include "HttpResponse.h"
+#include <unistd.h>
 
 
-void HttpResponse::write(int clnt_sock) {
+void HttpResponse::send() {
     mHeader->write(clnt_sock);
     mBody->write(clnt_sock);
+}
+
+void HttpResponse::directWriteBody(char *data, int len) const {
+    write(clnt_sock, data, len);
+}
+
+void HttpResponse::directoryWriteHeader() const {
+    mHeader->write(clnt_sock);
 }
 
 void HttpResponse::setStatusCode(int code) {
@@ -23,16 +32,14 @@ void HttpResponse::setBody(body* b) {
     mHeader->setHeader("Content-Length", std::to_string(mBody->size()));
 }
 
-HttpResponse::HttpResponse() {
+HttpResponse::HttpResponse(const int clnt_sock) : clnt_sock(clnt_sock){
     mHeader = new response_header;
-    mBody = new body();
+    mBody = new body;
 }
 
 
-DefaultHttpResponse::DefaultHttpResponse() {
+DefaultHttpResponse::DefaultHttpResponse(const int clnt_sock) : HttpResponse(clnt_sock){
     setStatusCode(200);
     setProtocol("HTTP/1.1");
     mHeader->setHeader("Server", "Saturn");
-
-    mBody->setData("shanghai", 8);
 }

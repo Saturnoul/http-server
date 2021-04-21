@@ -16,9 +16,14 @@ bool body_type::operator<(const body_type &other) const {
     return this->mName.compare(other.mName) < 0;
 }
 
+bool body_type::operator==(const body_type &other) const {
+    return this->mName == other.mName;
+}
+
 body_type body_type::FORM = body_type("multipart/form-data");
 body_type body_type::XWWW = body_type("application/x-www-form-urlencoded");
 body_type body_type::JSON = body_type("application/json");
+body_type body_type::EMTPY = body_type("empty");
 
 int body_type::size() const{
     return mSize;
@@ -27,6 +32,10 @@ int body_type::size() const{
 
 template<typename bodyType>
 body* body::NewBody(sock_reader& sr, const body_type& type){
+    if(type == body_type::EMTPY){
+        return new body; 
+    }
+
     auto b = new bodyType(type);
     b->parse(sr);
     return b;
@@ -35,7 +44,8 @@ body* body::NewBody(sock_reader& sr, const body_type& type){
 std::map<const body_type, const std::function<body*(sock_reader&, const body_type&)>> body::BODY_TYPE_MAP = {
         {body_type::FORM, NewBody<FormData>},
         {body_type::XWWW, NewBody<XWWWFormUrlEncoded>},
-        {body_type::JSON, NewBody<JsonData>}
+        {body_type::JSON, NewBody<JsonData>},
+        {body_type::EMTPY, [](sock_reader&, const body_type&)->body*{return new body;}}
 };
 
 body* body::createBody(const body_type& type, sock_reader& sr) {
@@ -105,6 +115,7 @@ const form_file& form_file::operator=(form_file&& other) noexcept {
     this->mCapacity = other.mCapacity;
     this->mCurLen = other.mCurLen;
     other.setEmpty();
+    return *this;
 }
 
 form_file::~form_file() {

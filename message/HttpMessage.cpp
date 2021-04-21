@@ -10,7 +10,7 @@ void HttpMessage::setHeader(const std::string& key, const std::string& value) {
     mHeader->setHeader(key, value);
 }
 
-const std::string& HttpMessage::getHeader(const std::string& key) {
+const std::string& HttpMessage::getHeader(const std::string& key) const{
     return mHeader->getHeader(key);
 }
 

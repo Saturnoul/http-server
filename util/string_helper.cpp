@@ -187,3 +187,9 @@ int BMSearch( const char* txt, const int n, const char* pat, const int m)
     }
     return -1;
 }
+
+void replace_char(std::string& str, const char o, const char n) {
+    for(int i = 0; i < str.length(); i++){
+        str[i] == o && (str[i] = n);
+    }
+}

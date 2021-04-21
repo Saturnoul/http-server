@@ -19,7 +19,6 @@ public:
     virtual void write(int clnt_sock){}
 protected:
     std::map<std::string, std::string> mHeaders;
-    friend class HttpRequest;
 };
 
 
@@ -44,7 +43,7 @@ public:
     void setStatusCode(int code);
     void setProtocol(const std::string& protocol);
 private:
-    void write(int serv_sock) override;
+    void write(int clnt_sock) override;
 
 private:
     int mStatusCode;

@@ -24,6 +24,9 @@ const std::string &header::getHeader(const std::string &key) {
 }
 
 int header::getContentLength() {
+    if(mHeaders.find("Content-Length") == mHeaders.end()){
+        return -1;
+    }
     return stoi(mHeaders["Content-Length"]);
 }
 
@@ -80,6 +83,9 @@ void request_header::parse(sock_reader &sr) {
 body_type request_header::getContentType() {
     std::string ct = getHeader("Content-Type");
     int contentLen = getContentLength();
+    if(contentLen < 0){
+        return body_type::EMTPY;
+    }
     auto div = ct.find(';');
     if (string::npos != div) {
         return body_type(ct.substr(0, div), contentLen, ct.substr(div + 1));

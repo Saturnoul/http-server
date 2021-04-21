@@ -26,10 +26,10 @@ void HttpRequest::setHeader(const std::string& key, const std::string& value) {
     return;
 }
 
-const std::string& HttpRequest::getPath() {
+const std::string& HttpRequest::getPath() const{
     return getHeader("Path");
 }
 
-const std::string &HttpRequest::getMethod() {
+const std::string &HttpRequest::getMethod() const{
     return getHeader("Method");
 }

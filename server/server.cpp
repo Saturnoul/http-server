@@ -2,9 +2,12 @@
 // Created by saturn on 4/9/21.
 //
 #include "server.h"
+#include <fstream>
 
 const char* server::POST = "POST";
 const char* server::GET = "GET";
+
+const int READ_BUF_SIZE = 1024;
 
 
 server& server::ip(in_addr_t ip) {
@@ -49,9 +52,9 @@ void server::start() {
     sockaddr_in clnt_addr;
     socklen_t clnt_addr_size = sizeof(clnt_addr);
     int clnt_socket = accept(serv_socket, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
-    HttpRequest httpRequest(clnt_socket);
-
-    handleRequest(httpRequest, clnt_socket);
+    HttpRequest request(clnt_socket);
+    auto* response = new DefaultHttpResponse(clnt_socket);
+    handleRequest(request, *response);
 
     close(clnt_socket);
     close(serv_socket);
@@ -65,24 +68,56 @@ void server::get(const std::string& path, const handler_type& callback) {
     setHandler("GET", path, callback);
 }
 
-void server::handleRequest(HttpRequest &request, int clnt_sock) {
-    auto response = DefaultHttpResponse();
+void server::handleRequest(const HttpRequest &request, HttpResponse& response) {
     auto method = request.getMethod();
     auto path = request.getPath();
 
-    getHandler(method, path)(request, response);
-
-    response.write(clnt_sock);
+    if(isStaticResource(method, path)){
+        handleStaticResource(path, response);
+    } else{
+        if(isPathMapped(method, path)){
+            getHandler(method, path)(request, response);
+        } else{
+            response.setStatusCode(404);
+        }
+        response.send();
+    }
 }
 
 void server::setHandler(const std::string& method, const std::string& path, const handler_type& handler) {
-    router[method][path] = handler;
+    mRouter[method][path] = handler;
 }
 
 handler_type& server::getHandler(const std::string &method, const std::string &path) {
-    return router[method][path];
+    return mRouter[method][path];
 }
 
 void server::setStaticPath(const std::string &path) {
+    resource::init(path);
+}
 
+bool server::isStaticResource(std::string &method, std::string &path) {
+    if(method == GET && resource::getInstance()->isStaticResource(path)){
+        return true;
+    }
+    return false;
+}
+
+void server::handleStaticResource(std::string& path, HttpResponse& response) {
+    std::fstream fs;
+    char buf[READ_BUF_SIZE];
+    int left = 0;
+
+    fs.open(resource::getInstance()->getFullPath(path), std::ios::in | std::ios::binary);
+    response.directoryWriteHeader();
+    while (fs.read(buf, READ_BUF_SIZE)){
+        response.directWriteBody(buf, READ_BUF_SIZE);
+    }
+    left = fs.gcount();
+    fs.read(buf, left);
+    response.directWriteBody(buf, left);
+}
+
+bool server::isPathMapped(std::string& method, std::string &path) {
+    return mRouter[method].find(path) != mRouter[method].end();
 }

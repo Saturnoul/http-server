@@ -6,6 +6,7 @@
 #define HTTP_IO_HELPER_H
 
 #include <functional>
+#include <set>
 
 const int BUF_SIZE = 1024;
 
@@ -24,6 +25,27 @@ private:
 };
 
 
-void getAllFiles(std::string path, std::vector<std::string>& files);
+class resource {
+public:
+    static resource* getInstance();
+    static void init(const std::string& resource_root);
+
+public:
+    bool isStaticResource(std::string& path);
+    std::string getFullPath(std::string path);
+private:
+    resource();
+    explicit resource(const std::string& root);
+    void buildResourceTable(const std::string& root);
+private:
+    std::string mResourceRoot;
+    std::set<std::string> mResources;
+
+    static resource* INSTANCE;
+};
+
+std::string joinPath(const std::string& prefix, const std::string& posix);
+
+void makeRelativePath(std::string& path, int prefixLen);
 
 #endif //HTTP_IO_HELPER_H

@@ -7,6 +7,7 @@
 
 
 class Configuration {
+private:
 
 };
 

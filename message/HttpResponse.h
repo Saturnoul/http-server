@@ -9,20 +9,28 @@
 
 class HttpResponse : public HttpMessage{
 public:
-    HttpResponse();
+    explicit HttpResponse(int clnt_sock);
 public:
     void setStatusCode(int code);
     void setBody(body* b);
-    void write(int clnt_sock);
+    void send();
 
+private:
+    void directWriteBody(char* data, int len) const;
+    void directoryWriteHeader() const;
 protected:
     void setProtocol(const std::string& protocol);
+
+private:
+    const int clnt_sock;
+
+    friend class server;
 };
 
 
 class DefaultHttpResponse : public HttpResponse {
 public:
-    DefaultHttpResponse();
+    explicit DefaultHttpResponse(int clnt_sock);
 };
 
 

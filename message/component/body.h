@@ -19,11 +19,13 @@ public:
     body_type(std::string name, int size, std::string data=std::string()) : mName(std::move(name)), mData(std::move(data)), mSize(size) {};
 public:
     bool operator < (const body_type& other) const;
+    bool operator == (const body_type& other) const;
     int size()const;
 
     static body_type FORM;
     static body_type XWWW;
     static body_type JSON;
+    static body_type EMTPY;
 private:
     std::string mName;
     std::string mData;

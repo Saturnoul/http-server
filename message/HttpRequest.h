@@ -19,8 +19,8 @@ public:
 
 public:
     void setHeader(const std::string& key, const std::string& value) override;
-    const std::string& getPath();
-    const std::string& getMethod();
+    const std::string& getPath() const;
+    const std::string& getMethod() const;
 private:
     void parse(int sock);
 };

@@ -18,10 +18,6 @@ int split(const string& s, const string &delimiters, function<void(const string&
 
 int split(const string& s, char delimiter, function<void(const string&&)>&& callback, bool ignore_last = false);
 
-void split(const string &s, vector<std::string> &tokens, std::regex delimiters, bool ignore_last = false);
-
-void strMoveLeft(string& s, int start, int begin, int end);
-
 std::string trim(const string& str, const string& target = " ");
 
 std::string next_line(const string& str, int& start);
@@ -29,5 +25,7 @@ std::string next_line(const string& str, int& start);
 std::string next_n_line(const string& str, int& start, int n);
 
 int BMSearch( const char* txt, int m, const char* pat, int n);
+
+void replace_char(std::string& str, char o, char n);
 
 #endif //HTTP_STRING_HELPER_H

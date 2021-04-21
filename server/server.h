@@ -37,12 +37,15 @@ public:
 private:
     void setHandler(const std::string& method, const std::string& path, const handler_type& handler);
     handler_type& getHandler(const std::string& method, const std::string& path);
-    void handleRequest(HttpRequest& request, int clnt_sock);
+    void handleRequest(const HttpRequest& request, HttpResponse& response);
+    bool isStaticResource(std::string& method, std::string& path);
+    void handleStaticResource(std::string& path, HttpResponse& response);
+    bool isPathMapped(std::string& method, std::string& path);
 private:
     sockaddr_in address;
     int serv_socket;
 
-    std::map<std::string, std::map<std::string, handler_type>> router;
+    std::map<std::string, std::map<std::string, handler_type>> mRouter;
 private:
     static const char* POST;
     static const char* GET;
