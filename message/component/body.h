@@ -37,7 +37,7 @@ private:
 
 class body {
 public:
-    body() : mData(nullptr), mLen(0){};
+    body() : mData(""), mLen(0){};
     explicit body(body_type type): type(std::move(type)), mData(nullptr), mLen(0){};
 
 public:

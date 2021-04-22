@@ -3,6 +3,7 @@
 //
 #include "server.h"
 #include <fstream>
+#include <pthread.h>
 
 const char* server::POST = "POST";
 const char* server::GET = "GET";
@@ -41,7 +42,11 @@ server::server() {
 }
 
 void server::start() {
-    int n = 1;
+    int n = 1, clnt_sock = -1;
+    sockaddr_in clnt_addr;
+    socklen_t clnt_addr_size = sizeof(clnt_addr);
+    pthread_t t_id;
+
     setsockopt(serv_socket, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(int));
     if(bind(serv_socket, (struct sockaddr*)&address, sizeof(address)) < 0){
         perror("In bind");
@@ -49,14 +54,12 @@ void server::start() {
     listen(serv_socket, 5);
     std::cout << "Listening on port " << ntohs(address.sin_port) << std::endl;
 
-    sockaddr_in clnt_addr;
-    socklen_t clnt_addr_size = sizeof(clnt_addr);
-    int clnt_socket = accept(serv_socket, (struct sockaddr*)&clnt_addr, &clnt_addr_size);
-    HttpRequest request(clnt_socket);
-    auto* response = new DefaultHttpResponse(clnt_socket);
-    handleRequest(request, *response);
 
-    close(clnt_socket);
+    while ((clnt_sock = accept(serv_socket, (struct sockaddr*)&clnt_addr, &clnt_addr_size)) != -1){
+        auto context = new handler_context(clnt_sock, this);
+        pthread_create(&t_id, NULL, &handleClient, context);
+        pthread_detach(t_id);
+    }
     close(serv_socket);
 }
 
@@ -116,8 +119,22 @@ void server::handleStaticResource(std::string& path, HttpResponse& response) {
     left = fs.gcount();
     fs.read(buf, left);
     response.directWriteBody(buf, left);
+
+    fs.close();
 }
 
 bool server::isPathMapped(std::string& method, std::string &path) {
     return mRouter[method].find(path) != mRouter[method].end();
+}
+
+void* server::handleClient(void* arg) {
+    auto context = reinterpret_cast<handler_context*>(arg);
+    int clnt_sock = context->clnt_sock;
+    HttpRequest request(clnt_sock);
+    auto* response = new DefaultHttpResponse(clnt_sock);
+    context->mServer->handleRequest(request, *response);
+    delete response;
+    delete context;
+    close(clnt_sock);
+    return nullptr;
 }

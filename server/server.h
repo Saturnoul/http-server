@@ -41,6 +41,8 @@ private:
     bool isStaticResource(std::string& method, std::string& path);
     void handleStaticResource(std::string& path, HttpResponse& response);
     bool isPathMapped(std::string& method, std::string& path);
+
+    static void* handleClient(void* arg);
 private:
     sockaddr_in address;
     int serv_socket;
@@ -53,5 +55,11 @@ private:
     friend class HttpMessage;
 };
 
+struct handler_context {
+    int clnt_sock;
+    server* mServer;
+
+    handler_context(int clnt_sock, server* s) : clnt_sock(clnt_sock), mServer(s) {}
+};
 
 #endif //HTTP_SERVER_H
