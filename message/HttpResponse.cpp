@@ -37,6 +37,10 @@ HttpResponse::HttpResponse(const int clnt_sock) : clnt_sock(clnt_sock){
     mBody = new body;
 }
 
+void HttpResponse::end() {
+    close(clnt_sock);
+}
+
 
 DefaultHttpResponse::DefaultHttpResponse(const int clnt_sock) : HttpResponse(clnt_sock){
     setStatusCode(200);

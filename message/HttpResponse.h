@@ -14,6 +14,7 @@ public:
     void setStatusCode(int code);
     void setBody(body* b);
     void send();
+    void end();
 
 private:
     void directWriteBody(char* data, int len) const;

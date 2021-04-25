@@ -13,9 +13,11 @@
 #include <iostream>
 #include <map>
 #include <functional>
+#include <sys/epoll.h>
 
 #include "../message/HttpRequest.h"
 #include "../message/HttpResponse.h"
+#include "../util/thread_pool.h"
 
 typedef std::function<void(const HttpRequest&, HttpResponse&)> handler_type;
 
@@ -41,11 +43,14 @@ private:
     bool isStaticResource(std::string& method, std::string& path);
     void handleStaticResource(std::string& path, HttpResponse& response);
     bool isPathMapped(std::string& method, std::string& path);
-
-    static void* handleClient(void* arg);
 private:
     sockaddr_in address;
-    int serv_socket;
+    int serv_socket, epfd;
+    epoll_event *epoll_events;
+    epoll_event event;
+
+    ThreadPool threadPool = ThreadPool(16);
+
 
     std::map<std::string, std::map<std::string, handler_type>> mRouter;
 private:

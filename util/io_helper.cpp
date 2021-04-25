@@ -30,6 +30,7 @@ void sock_reader::parseStream(const  cb_type& callback) {
     while (!nothingToRead && nextRead && (readLen = read(sock, tmp_buf, maxReadLen)) > 0) {
         call_cb(callback, nextRead, nothingToRead);
     }
+
     if(nextRead && offset > 0){
         readLen = 0;
         call_cb(callback, nextRead, nothingToRead);

@@ -10,7 +10,7 @@ int main() {
 
     s.post("/saturn", [](const HttpRequest& request, HttpResponse& response){
         auto* jsonData = dynamic_cast<JsonData*>(request.getBody());
-        std::cout << jsonData->mJson["name"] << std::endl;
+        auto name = jsonData->mJson["name"].asString();
         response.getBody()->setData("Hello from saturn", 17);
     });
 
