@@ -6,7 +6,7 @@
 #define HTTP_HEADER_H
 
 #include <string>
-#include <map>
+#include <unordered_map>
 
 #include "../../util/io_helper.h"
 #include "body.h"
@@ -14,7 +14,8 @@
 class header {
 public:
     void setHeader(const std::string& key, const std::string& value);
-    const std::string& getHeader(const std::string& key);
+    const std::string & getHeader(const std::string& key);
+    bool exist(const std::string& key);
     int getContentLength();
     virtual void write(int clnt_sock){}
 protected:
@@ -34,7 +35,7 @@ private:
     void addHeader(const std::string&& header_line);
     void parseQuery(const std::string& path);
 private:
-    std::map<std::string, std::string> queries;
+    std::unordered_map<std::string, std::string> queries;
 };
 
 
@@ -50,6 +51,8 @@ private:
     std::string mProtocol;
 
     static std::map<int, const char*> STATUS_MESSAGE;
+
+    friend class WebsocketHandshake;
 };
 
 #endif //HTTP_HEADER_H

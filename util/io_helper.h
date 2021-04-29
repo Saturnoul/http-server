@@ -14,14 +14,16 @@ typedef std::function<int(char *, int, bool &, bool&)> cb_type;
 
 class sock_reader{
 public:
-    explicit sock_reader(int sock);
+    explicit sock_reader(int sock, bool keepListening = false);
     void parseStream(const cb_type& callback);
     void call_cb(const cb_type& callback, bool& nextRead, bool& nothingToRead);
+    int getSocket()const;
 private:
     char buf[BUF_SIZE];
     char* tmp_buf;
     const int sock;
     int readLen, handledLen, maxReadLen, offset, curLen;
+    bool keepListening;
 };
 
 

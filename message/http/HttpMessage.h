@@ -6,8 +6,8 @@
 #define HTTP_HTTPMESSAGE_H
 
 
-#include "component/header.h"
-#include "component/body.h"
+#include "../component/header.h"
+#include "../component/body.h"
 
 
 class HttpMessage {
@@ -24,6 +24,5 @@ protected:
     header* mHeader;
     body* mBody;
 };
-
 
 #endif //HTTP_HTTPMESSAGE_H

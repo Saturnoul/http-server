@@ -19,15 +19,22 @@ void header::setHeader(const std::string &key, const std::string &value) {
     mHeaders[key] = trim(value);
 }
 
-const std::string &header::getHeader(const std::string &key) {
+const std::string & header::getHeader(const std::string &key){
     return mHeaders[key];
 }
 
-int header::getContentLength() {
+int header::getContentLength(){
     if(mHeaders.find("Content-Length") == mHeaders.end()){
         return -1;
     }
     return stoi(mHeaders["Content-Length"]);
+}
+
+bool header::exist(const string &key) {
+    if(mHeaders.find(key) == mHeaders.end()){
+        return false;
+    }
+    return true;
 }
 
 
