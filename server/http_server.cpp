@@ -4,7 +4,7 @@
 
 #include "http_server.h"
 
-#include <fstream>
+#include <stdio.h>
 
 const char *http_server_plugin::POST = "POST";
 const char *http_server_plugin::GET = "GET";
@@ -61,21 +61,16 @@ bool http_server_plugin::isStaticResource(std::string &method, std::string &path
 }
 
 void http_server_plugin::handleStaticResource(std::string &path, HttpResponse &response) {
-    std::fstream fs;
     char buf[READ_BUF_SIZE];
-    int left = 0;
+    int readLen = 0;
 
-    fs.open(resource::getInstance()->getFullPath(path), std::ios::in | std::ios::binary);
+    FILE* fp = fopen(resource::getInstance()->getFullPath(path).c_str(), "r");
     response.directoryWriteHeader();
-    while (fs.read(buf, READ_BUF_SIZE)) {
-        response.directWriteBody(buf, READ_BUF_SIZE);
+    while ((readLen = fread(buf, 1, READ_BUF_SIZE, fp)) > 0) {
+        response.directWriteBody(buf, readLen);
     }
-    left = fs.gcount();
-    fs.read(buf, left);
-    response.directWriteBody(buf, left);
-
     response.end();
-    fs.close();
+    fclose(fp);
 }
 
 bool http_server_plugin::isPathMapped(std::string &method, std::string &path) {

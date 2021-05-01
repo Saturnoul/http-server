@@ -21,7 +21,8 @@ public:
     void addEndPoint(const std::string& path, const websocket_handler& handler);
     void handleHandshake(int clnt_sock);
     void handleHandshake(WebsocketHandshake& handshake);
-    bool handleFrame(int clnt_sock);
+    void handleFrame(int clnt_sock);
+    void handleFrame(sock_reader& sr);
 private:
     void addSession(int clnt_sock, const WebsocketSession& session);
 private:

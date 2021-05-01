@@ -13,7 +13,9 @@ const char SPACE = ' ';
 const char SEMICOLON = ':';
 const char* CRLF = "\r\n";
 
-const std::string HEADER_BODY_SEPARATOR = "\r\n\r\n";
+const char *const HEADER_BODY_SEPARATOR = "\r\n\r\n";
+const std::set<std::string> METHODS = {"GET", "POST"};
+const int MAX_HEADER_LEN = 1024;
 
 void header::setHeader(const std::string &key, const std::string &value) {
     mHeaders[key] = trim(value);
@@ -74,13 +76,13 @@ void request_header::parseQuery(const std::string &path) {
 
 void request_header::parse(sock_reader &sr) {
     string msg;
-    sr.parseStream([this, &msg](char *buf, int len, bool &nextRead, bool nothingToRead) -> int {
+    sr.parseStream([this, &msg](char *buf, int len, sock_reader_flag& flag) -> int {
         msg.append(buf, len);
-        auto headerEnd = msg.find(HEADER_BODY_SEPARATOR);
+        auto headerEnd = BMSearch(buf, len, HEADER_BODY_SEPARATOR, 4);
         if (headerEnd != string::npos) {
             auto cb = std::bind(&request_header::addHeader, this, placeholders::_1);
             split(msg.substr(0, headerEnd), "\r\n", cb);
-            nextRead = false;
+            flag.nextRead = false;
             return headerEnd + 4;
         }
         return len;

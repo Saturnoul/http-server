@@ -17,6 +17,7 @@ public:
     const std::string & getHeader(const std::string& key) const;
     bool exist(const std::string& key) const;
     int getContentLength();
+    bool isValid() const;
     virtual void write(int clnt_sock){}
 protected:
     std::map<std::string, std::string> mHeaders;

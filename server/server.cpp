@@ -70,14 +70,13 @@ void server::start_with_epoll() {
         for (int i = 0; i < event_cnt; i++) {
             if (epoll_events[i].data.fd == serv_socket) {
                 clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
-                event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+                event.events = EPOLLIN | EPOLLET;
                 event.data.fd = clnt_sock;
                 handle_connection(clnt_sock, true);
                 epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sock, &event);
             } else {
                 clnt_sock = epoll_events[i].data.fd;
                 handle_connection(clnt_sock, false);
-                epoll_ctl(epfd, EPOLL_CTL_DEL, clnt_sock, &event);
             }
         }
     }
@@ -90,9 +89,6 @@ void server::start_with_thread_pool() {
     int clnt_sock = -1;
     sockaddr_in clnt_addr{};
     socklen_t clnt_addr_size = sizeof(clnt_addr);
-
-    listen(serv_socket, 1000);
-    std::cout << "Listening on port " << ntohs(address.sin_port) << std::endl;
 
     ThreadPool threadPool = ThreadPool(THREAD_POOL_SIZE);
 

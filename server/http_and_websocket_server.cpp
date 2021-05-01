@@ -33,29 +33,27 @@ void http_and_websocket_server::start_with_custom() {
         for (int i = 0; i < event_cnt; i++) {
             if (epoll_events[i].data.fd == serv_socket) {
                 clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
-                event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+                event.events = EPOLLIN | EPOLLET;
                 event.data.fd = clnt_sock;
                 epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sock, &event);
             } else {
                 clnt_sock = epoll_events[i].data.fd;
-                recv(clnt_sock, &first_byte, 1, MSG_PEEK);
-                if(first_byte & C_40){
-                    HttpRequest request(clnt_sock);
+                sock_reader sr(clnt_sock);
+                sr.peek(&first_byte, 1);
+                if(first_byte & C_40){  // Since we don't support websocket extensions, the second bit of the first byte in a frame must be 0.
+                    HttpRequest request(sr);
                     auto req_header = dynamic_cast<const request_header*>(request.getAllHeader());
                     if(WebsocketHandshake::verifyRequest(req_header)){
 
                         WebsocketHandshake handshake(request, clnt_sock);
                         handleHandshake(handshake);
-                        epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sock, &event);
                     }else {
                         threadPool.enqueue([this, clnt_sock](const HttpRequest& request) {
                             handleHttpRequest(request, clnt_sock);
                         }, std::move(request));
                     }
                 }else{
-                    if(!handleFrame(clnt_sock)){
-                        epoll_ctl(epfd, EPOLL_CTL_DEL, clnt_sock, &event);
-                    }
+                    handleFrame(sr);
                 }
             }
         }

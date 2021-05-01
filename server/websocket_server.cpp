@@ -43,18 +43,22 @@ void websocket_server_plugin::handleHandshake(const int clnt_sock) {
     }
 }
 
-bool websocket_server_plugin::handleFrame(const int clnt_sock) {
+void websocket_server_plugin::handleFrame(const int clnt_sock) {
     sock_reader sr(clnt_sock);
+    handleFrame(sr);
+}
+
+void websocket_server_plugin::handleFrame(sock_reader &sr) {
+    int clnt_sock = sr.getSocket();
     auto session_pair = mSessionMap.find(clnt_sock);
     if(session_pair == mSessionMap.end()){
-        return false;
+        return;
     }
     auto session = session_pair->second;
     auto path = session.getPath();
     auto handler = mRouter[path];
-    bool continue_listen = true;
 
-    sr.parseStream([&handler, &session, &continue_listen](char* buf, int len, bool& nextRead, bool& nothingToRead)->int{
+    sr.parseStream([&handler, &session](char* buf, int len, sock_reader_flag& flag)->int{
         WebsocketMessage msg;
         msg.readFrame(buf, len);
 
@@ -70,11 +74,9 @@ bool websocket_server_plugin::handleFrame(const int clnt_sock) {
             case WebSocketOp::CLOSE:
                 session.sendClose();
                 handler.onClose(session);
-                continue_listen = false;
-                nextRead = false;
+                flag.nextRead = false;
                 break;
         }
         return len;
     });
-    return continue_listen;
 }

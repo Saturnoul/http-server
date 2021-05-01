@@ -6,18 +6,26 @@
 #define HTTP_IO_HELPER_H
 
 #include <functional>
+#include <stdio.h>
 #include <set>
 
 const int BUF_SIZE = 1024;
 
-typedef std::function<int(char *, int, bool &, bool&)> cb_type;
+struct sock_reader_flag {
+    bool nextRead;
+    bool nothingToRead;
+    bool skip;
+};
+
+typedef std::function<int(char *, int, sock_reader_flag& flag)> cb_type;
 
 class sock_reader{
 public:
     explicit sock_reader(int sock, bool keepListening = false);
     void parseStream(const cb_type& callback);
-    void call_cb(const cb_type& callback, bool& nextRead, bool& nothingToRead);
+    void call_cb(const cb_type& callback, sock_reader_flag& flag);
     int getSocket()const;
+    void peek(void* des, int n);
 private:
     char buf[BUF_SIZE];
     char* tmp_buf;

@@ -131,12 +131,11 @@ void FormData::parse(sock_reader& sr) {
     auto end_boundary = boundary.append("--");
     int handledBodyLen = 0, bodySize = size();
     form_file* file = nullptr;
-    sr.parseStream([this, &start_boundary, &end_boundary, &file, &handledBodyLen, bodySize](char* buf, int len, bool& nextRead, bool& nothingToRead) -> int {
+    sr.parseStream([this, &start_boundary, &end_boundary, &file, &handledBodyLen, bodySize](char* buf, int len, sock_reader_flag& flag) -> int {
         int handledLen = 0;
         if(file){
             int endBoundaryPos = BMSearch(buf, len, end_boundary.c_str(), end_boundary.length());
             int startBundaryPos = BMSearch(buf, len, start_boundary.c_str(), start_boundary.length());
-            int retLen = 0;
             if(startBundaryPos < 0){
                 file->write(buf, len);
                 handledLen = len;
@@ -175,7 +174,7 @@ void FormData::parse(sock_reader& sr) {
                 }
             }
         }
-        nothingToRead = handledBodyLen + len == bodySize;
+        flag.nothingToRead = handledBodyLen + len == bodySize;
         handledBodyLen += handledLen;
         return handledLen;
     });
@@ -217,12 +216,12 @@ const std::string& FormData::getParam(string &name) {
 
 void XWWWFormUrlEncoded::parse(sock_reader& sr) {
     int handledBodyLen = 0, bodySize= size();
-    sr.parseStream([this, &handledBodyLen, bodySize](char* buf, int len, bool& nextRead, bool& nothingToRead) -> int{
-        nothingToRead = handledBodyLen + len == bodySize;
+    sr.parseStream([this, &handledBodyLen, bodySize](char* buf, int len, sock_reader_flag& flag) -> int{
+        flag.nothingToRead = handledBodyLen + len == bodySize;
        int handled = split(string(buf, len), XWWW_DELIMETER, [this](const std::string&& str){
            auto pos = str.find(XWWW_KV_CONNECTOR);
            mParams[str.substr(0, pos)] = str.substr(pos + 1);
-       }, !nothingToRead);
+       }, !flag.nothingToRead);
        handledBodyLen += handled;
        return handled;
     });
@@ -238,8 +237,8 @@ Json::CharReaderBuilder JsonData::READER = Json::CharReaderBuilder();
 void JsonData::parse(sock_reader& sr) {
     int handledBodyLen = 0, bodySize =size();
     std::string json_str;
-    sr.parseStream([this, &handledBodyLen, bodySize, &json_str](char *buf, int len, bool &nextRead, bool &nothingToRead) -> int {
-        nothingToRead = handledBodyLen + len == bodySize;
+    sr.parseStream([this, &handledBodyLen, bodySize, &json_str](char *buf, int len, sock_reader_flag& flag) -> int {
+        flag.nothingToRead = handledBodyLen + len == bodySize;
         json_str.append(buf, len);
         handledBodyLen += len;
         return len;
