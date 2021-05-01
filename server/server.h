@@ -10,6 +10,8 @@
 #include "../thirdparty/thread_pool.h"
 
 const int THREAD_POOL_SIZE = 16;
+const int EPOLL_TIMEOUT = 500;
+const int EPOLL_SIZE = 100;
 
 class server {
 public:
@@ -21,17 +23,17 @@ public:
     server& ip(in_addr_t ip);
     server& port(const char* port);
     server& port(short port);
-    server& build();
+    void build();
     void start_with_thread_pool();
     void start_with_epoll();
 
+    virtual void start_with_custom();
+
 protected:
-    virtual void handle_connection(int clnt_sock, bool initial) = 0;
+    virtual void handle_connection(int clnt_sock, bool initial);
 protected:
     sockaddr_in address;
     int serv_socket;
-
-    ThreadPool threadPool = ThreadPool(THREAD_POOL_SIZE);
 };
 
 #endif //HTTP_SERVER_H

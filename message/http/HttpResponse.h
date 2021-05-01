@@ -25,7 +25,7 @@ protected:
 private:
     const int clnt_sock;
 
-    friend class http_server;
+    friend class http_server_plugin;
 };
 
 

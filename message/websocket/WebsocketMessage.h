@@ -5,7 +5,7 @@
 #ifndef HTTP_WEBSOCKETMESSAGE_H
 #define HTTP_WEBSOCKETMESSAGE_H
 
-#include "../component/header.h"
+#include "../http/HttpRequest.h"
 
 enum class WebSocketOp : unsigned char {
     CONTINUE = 0,
@@ -19,18 +19,25 @@ enum class WebSocketOp : unsigned char {
 class WebsocketHandshake{
 public:
     explicit WebsocketHandshake(sock_reader& sr);
+    explicit WebsocketHandshake(HttpRequest& request, int clnt_scok);
+    ~WebsocketHandshake();
+public:
     bool isValid() const;
     std::string getPath();
     std::string getSecretKey();
     int getSocket() const;
-    void close();
+    void close() const;
+
+    static bool verifyRequest(const request_header* request);
 private:
-    bool verifyRequest();
     void respond();
 private:
-    request_header mRequestHeader;
+    request_header* mRequestHeader;
     bool mValid;
     int mClntSock;
+
+    friend class http_and_websocket_server;
+    friend class websocket_server_plugin;
 };
 
 
@@ -53,9 +60,7 @@ private:
     char* data = nullptr;
     bool completed = true;
 
-    int clnt_sock;
-
-    friend class websocket_server;
+    friend class websocket_server_plugin;
 };
 
 

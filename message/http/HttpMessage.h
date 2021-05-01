@@ -17,7 +17,7 @@ public:
 public:
     virtual void setHeader(const std::string& key, const std::string& value);
     const std::string& getHeader(const std::string& key) const;
-    header* getAllHeader();
+    const header* getAllHeader();
     body* getBody() const;
 
 protected:

@@ -13,30 +13,31 @@
 
 typedef std::function<void(const HttpRequest&, HttpResponse&)> handler_type;
 
-class http_server : public server{
+class http_server_plugin {
 public:
     void post(const std::string& path, const handler_type& callback);
     void get(const std::string& path, const handler_type& callback);
-    void setStaticPath(const std::string& path);
+    static void setStaticPath(const std::string& path);
 
-private:
+protected:
     void setHandler(const std::string& method, const std::string& path, const handler_type& handler);
     handler_type& getHandler(const std::string& method, const std::string& path);
     void handleHttpRequest(const HttpRequest& request, HttpResponse& response);
-    bool isStaticResource(std::string& method, std::string& path);
-    void handleStaticResource(std::string& path, HttpResponse& response);
+    void handleHttpRequest(const HttpRequest& request, int clnt_sock);
+    static bool isStaticResource(std::string& method, std::string& path);
+    static void handleStaticResource(std::string& path, HttpResponse& response);
     bool isPathMapped(std::string& method, std::string& path);
-
-private:
-    void handle_connection(int clnt_sock, bool initial) override;
 
 private:
     static const char* POST;
     static const char* GET;
 private:
     std::map<std::string, std::map<std::string, handler_type>> mRouter;
-    friend class HttpMessage;
 };
 
+class http_server : public server, public http_server_plugin{
+private:
+    void handle_connection(int clnt_sock, bool initial) override;
+};
 
 #endif //HTTP_HTTP_SERVER_H

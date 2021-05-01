@@ -19,19 +19,19 @@ const unsigned short CLOSE_FRAME = 0x8800;
 
 WebsocketHandshake::WebsocketHandshake(sock_reader& sr) {
     mClntSock = sr.getSocket();
-    mRequestHeader = request_header(sr);
-    mValid = verifyRequest();
+    mRequestHeader = new request_header(sr);
+    mValid = verifyRequest(mRequestHeader);
     if(mValid){
         respond();
     }
 }
 
-bool WebsocketHandshake::verifyRequest() {
+bool WebsocketHandshake::verifyRequest(const request_header* header) {
     const char* field, *value;
     for(int i = 0; i < REQUIRED_LEN; i++){
         field = REQUIRED_FIELD[i];
         value = REQUIRED_VALUE[i];
-        if(!mRequestHeader.exist(field) || (value && mRequestHeader.getHeader(field) != value)){
+        if(!header->exist(field) || (value && header->getHeader(field) != value)){
             return false;
         }
     }
@@ -43,7 +43,7 @@ void WebsocketHandshake::respond() {
     responseHeader.setProtocol("HTTP/1.1");
     responseHeader.setStatusCode(101);
 
-    auto clnt_key = mRequestHeader.getHeader("Sec-WebSocket-Key");
+    auto clnt_key = mRequestHeader->getHeader("Sec-WebSocket-Key");
     auto srv_key = process_sec_websocket_key(clnt_key);
 
     responseHeader.setHeader("Upgrade", "websocket");
@@ -58,19 +58,28 @@ bool WebsocketHandshake::isValid() const {
 }
 
 std::string WebsocketHandshake::getPath() {
-    return mRequestHeader.getHeader("Path");
+    return mRequestHeader->getHeader("Path");
 }
 
 std::string WebsocketHandshake::getSecretKey() {
-    return mRequestHeader.getHeader("Sec-WebSocket-Key");
+    return mRequestHeader->getHeader("Sec-WebSocket-Key");
 }
 
 int WebsocketHandshake::getSocket() const {
     return mClntSock;
 }
 
-void WebsocketHandshake::close() {
+void WebsocketHandshake::close() const {
     ::close(mClntSock);
+}
+
+WebsocketHandshake::WebsocketHandshake(HttpRequest &request, const int clnt_sock): mClntSock(clnt_sock) {
+    mRequestHeader = dynamic_cast<request_header *>(request.mHeader);
+    request.mHeader = nullptr;
+}
+
+WebsocketHandshake::~WebsocketHandshake() {
+    delete mRequestHeader;
 }
 
 

@@ -13,6 +13,13 @@ HttpRequest::HttpRequest(const int sock){
     parse(sock);
 }
 
+HttpRequest::HttpRequest(HttpRequest &&other)  noexcept {
+    this->mHeader = other.mHeader;
+    this->mBody = other.mBody;
+    other.mHeader = nullptr;
+    other.mBody = nullptr;
+}
+
 void HttpRequest::parse(const int clnt_sock){
     sock_reader sr(clnt_sock);
 

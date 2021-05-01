@@ -14,8 +14,8 @@
 class header {
 public:
     void setHeader(const std::string& key, const std::string& value);
-    const std::string & getHeader(const std::string& key);
-    bool exist(const std::string& key);
+    const std::string & getHeader(const std::string& key) const;
+    bool exist(const std::string& key) const;
     int getContentLength();
     virtual void write(int clnt_sock){}
 protected:

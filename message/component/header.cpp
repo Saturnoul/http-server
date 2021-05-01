@@ -19,8 +19,8 @@ void header::setHeader(const std::string &key, const std::string &value) {
     mHeaders[key] = trim(value);
 }
 
-const std::string & header::getHeader(const std::string &key){
-    return mHeaders[key];
+const std::string & header::getHeader(const std::string &key) const{
+    return mHeaders.find(key)->second;
 }
 
 int header::getContentLength(){
@@ -30,7 +30,7 @@ int header::getContentLength(){
     return stoi(mHeaders["Content-Length"]);
 }
 
-bool header::exist(const string &key) {
+bool header::exist(const string &key) const{
     if(mHeaders.find(key) == mHeaders.end()){
         return false;
     }
@@ -88,11 +88,12 @@ void request_header::parse(sock_reader &sr) {
 }
 
 body_type request_header::getContentType() {
-    std::string ct = getHeader("Content-Type");
+    auto ct_pair = mHeaders.find("Content-Type");
     int contentLen = getContentLength();
-    if(contentLen < 0){
+    if(contentLen < 0 || ct_pair == mHeaders.end()){
         return body_type::EMTPY;
     }
+    std::string ct = getHeader("Content-Type");
     auto div = ct.find(';');
     if (string::npos != div) {
         return body_type(ct.substr(0, div), contentLen, ct.substr(div + 1));

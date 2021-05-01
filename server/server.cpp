@@ -9,8 +9,6 @@
 #include <iostream>
 #include <sys/socket.h>
 
-const int EPOLL_SIZE = 100;
-
 
 server &server::ip(in_addr_t ip) {
     address.sin_addr.s_addr = htonl(ip);
@@ -32,7 +30,7 @@ server &server::port(short port) {
     return *this;
 }
 
-server &server::build() {
+void server::build() {
     int n = 1;
     address.sin_family = AF_INET;
 //    serv_socket = socket(PF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
@@ -41,7 +39,8 @@ server &server::build() {
     if (bind(serv_socket, (struct sockaddr *) &address, sizeof(address)) < 0) {
         perror("In bind");
     }
-    return *this;
+    listen(serv_socket, 1000);
+    std::cout << "Listening on port " << ntohs(address.sin_port) << std::endl;
 }
 
 server::server() {
@@ -59,23 +58,19 @@ void server::start_with_epoll() {
     int event_cnt = 0;
     epoll_event event{};
 
-
-    listen(serv_socket, 1000);
-    std::cout << "Listening on port " << ntohs(address.sin_port) << std::endl;
-
     event.events = EPOLLIN;
     event.data.fd = serv_socket;
     epoll_ctl(epfd, EPOLL_CTL_ADD, serv_socket, &event);
 
     while (true) {
-        event_cnt = epoll_wait(epfd, epoll_events, EPOLL_SIZE, -1);
+        event_cnt = epoll_wait(epfd, epoll_events, EPOLL_SIZE, EPOLL_TIMEOUT);
         if (event_cnt == -1) {
             break;
         }
         for (int i = 0; i < event_cnt; i++) {
             if (epoll_events[i].data.fd == serv_socket) {
                 clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
-                event.events = EPOLLIN | EPOLLET;
+                event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
                 event.data.fd = clnt_sock;
                 handle_connection(clnt_sock, true);
                 epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sock, &event);
@@ -99,11 +94,22 @@ void server::start_with_thread_pool() {
     listen(serv_socket, 1000);
     std::cout << "Listening on port " << ntohs(address.sin_port) << std::endl;
 
+    ThreadPool threadPool = ThreadPool(THREAD_POOL_SIZE);
+
     while ((clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size)) != -1) {
 //        std::cout << inet_ntoa(clnt_addr.sin_addr) << std::endl;
         threadPool.enqueue([this, clnt_sock](){
             handle_connection(clnt_sock, true);
         });
-    };
+    }
     close(serv_socket);
 }
+
+void server::start_with_custom() {
+    std::cout << "You need to implement your custom starter" << std::endl;
+}
+
+void server::handle_connection(int clnt_sock, bool initial) {
+    std::cout << "You need to implement your starter" << std::endl;
+}
+

@@ -16,6 +16,7 @@
 class HttpRequest : public HttpMessage{
 public:
     explicit HttpRequest(int sock);
+    HttpRequest(HttpRequest&& other) noexcept ;
 
 public:
     void setHeader(const std::string& key, const std::string& value) override;
@@ -23,6 +24,8 @@ public:
     const std::string& getMethod() const;
 private:
     void parse(int sock);
+
+    friend class WebsocketHandshake;
 };
 
 

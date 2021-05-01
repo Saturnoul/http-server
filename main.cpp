@@ -1,8 +1,8 @@
-#include "server/http_server.h"
-#include "server/websocket_server.h"
+#include "server/http_and_websocket_server.h"
 #include <iostream>
+
 int main() {
-    websocket_server s;
+    http_and_websocket_server s;
     s.ip(INADDR_ANY)
     .port(9119)
     .build();
@@ -23,15 +23,15 @@ int main() {
 
     s.addEndPoint("/saturn", handler);
 
-//    s.setStaticPath("/home/saturn/Pictures");
-//
-//    s.post("/saturn", [](const HttpRequest& request, HttpResponse& response){
-//        auto* jsonData = dynamic_cast<JsonData*>(request.getBody());
-//        auto name = jsonData->mJson["name"].asString();
-//        response.getBody()->setData("Hello from saturn", 17);
-//    });
+    s.setStaticPath("/home/saturn/Pictures");
 
-    s.start_with_epoll();
+    s.post("/saturn", [](const HttpRequest& request, HttpResponse& response){
+        auto* jsonData = dynamic_cast<JsonData*>(request.getBody());
+        auto name = jsonData->mJson["name"].asString();
+        response.getBody()->setData("Hello from saturn", 17);
+    });
+
+    s.start_with_custom();
 
     return 0;
 }

@@ -6,20 +6,20 @@
 
 #include <fstream>
 
-const char *http_server::POST = "POST";
-const char *http_server::GET = "GET";
+const char *http_server_plugin::POST = "POST";
+const char *http_server_plugin::GET = "GET";
 
 const int READ_BUF_SIZE = 1024;
 
-void http_server::post(const std::string &path, const handler_type &callback) {
+void http_server_plugin::post(const std::string &path, const handler_type &callback) {
     setHandler("POST", path, callback);
 }
 
-void http_server::get(const std::string &path, const handler_type &callback) {
+void http_server_plugin::get(const std::string &path, const handler_type &callback) {
     setHandler("GET", path, callback);
 }
 
-void http_server::handleHttpRequest(const HttpRequest &request, HttpResponse &response) {
+void http_server_plugin::handleHttpRequest(const HttpRequest &request, HttpResponse &response) {
     auto method = request.getMethod();
     auto path = request.getPath();
 
@@ -36,26 +36,31 @@ void http_server::handleHttpRequest(const HttpRequest &request, HttpResponse &re
     }
 }
 
-void http_server::setHandler(const std::string &method, const std::string &path, const handler_type &handler) {
+void http_server_plugin::handleHttpRequest(const HttpRequest &request, int clnt_sock) {
+    DefaultHttpResponse response(clnt_sock);
+    handleHttpRequest(request, response);
+}
+
+void http_server_plugin::setHandler(const std::string &method, const std::string &path, const handler_type &handler) {
     mRouter[method][path] = handler;
 }
 
-handler_type &http_server::getHandler(const std::string &method, const std::string &path) {
+handler_type &http_server_plugin::getHandler(const std::string &method, const std::string &path) {
     return mRouter[method][path];
 }
 
-void http_server::setStaticPath(const std::string &path) {
+void http_server_plugin::setStaticPath(const std::string &path) {
     resource::init(path);
 }
 
-bool http_server::isStaticResource(std::string &method, std::string &path) {
+bool http_server_plugin::isStaticResource(std::string &method, std::string &path) {
     if (method == GET && resource::getInstance()->isStaticResource(path)) {
         return true;
     }
     return false;
 }
 
-void http_server::handleStaticResource(std::string &path, HttpResponse &response) {
+void http_server_plugin::handleStaticResource(std::string &path, HttpResponse &response) {
     std::fstream fs;
     char buf[READ_BUF_SIZE];
     int left = 0;
@@ -73,7 +78,7 @@ void http_server::handleStaticResource(std::string &path, HttpResponse &response
     fs.close();
 }
 
-bool http_server::isPathMapped(std::string &method, std::string &path) {
+bool http_server_plugin::isPathMapped(std::string &method, std::string &path) {
     return mRouter[method].find(path) != mRouter[method].end();
 }
 

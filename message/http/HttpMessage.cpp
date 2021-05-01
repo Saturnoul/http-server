@@ -18,7 +18,7 @@ body* HttpMessage::getBody() const{
     return mBody;
 }
 
-header* HttpMessage::getAllHeader() {
+const header* HttpMessage::getAllHeader() {
     return mHeader;
 }
 
