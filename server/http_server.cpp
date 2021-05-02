@@ -28,6 +28,10 @@ void http_server_plugin::handleHttpRequest(const HttpRequest &request, HttpRespo
     } else {
         if (isPathMapped(method, path)) {
             getHandler(method, path)(request, response);
+            auto cookie = request.getCookie();
+            if(!cookie.empty()){
+                response.setHeader("Set-Cookie", cookie);
+            }
         } else {
             response.setStatusCode(404);
         }

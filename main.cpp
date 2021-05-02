@@ -26,9 +26,17 @@ int main() {
     s.setStaticPath("/home/saturn/Pictures");
 
     s.post("/saturn", [](const HttpRequest& request, HttpResponse& response){
+        std::string msg;
+        auto session = request.getSession();
+        auto name = session.get("name");
+        std::cout << "Welcome: " << name << std::endl;
+    });
+
+    s.post("/login", [](const HttpRequest& request, HttpResponse& response){
         auto* jsonData = dynamic_cast<JsonData*>(request.getBody());
         auto name = jsonData->mJson["name"].asString();
-        response.getBody()->setData("Hello from saturn", 17);
+        auto& session = request.getSession();
+        session.set("name", "luohao");
     });
 
     s.start_with_custom();

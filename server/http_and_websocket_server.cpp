@@ -27,9 +27,9 @@ void http_and_websocket_server::start_with_custom() {
 
     while (true) {
         event_cnt = epoll_wait(epfd, epoll_events, EPOLL_SIZE, EPOLL_TIMEOUT);
-        if (event_cnt == -1) {
-            break;
-        }
+//        if (event_cnt == -1) {
+//            break;
+//        }
         for (int i = 0; i < event_cnt; i++) {
             if (epoll_events[i].data.fd == serv_socket) {
                 clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
