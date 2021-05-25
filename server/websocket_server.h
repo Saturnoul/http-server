@@ -21,6 +21,7 @@ public:
     void addEndPoint(const std::string& path, const websocket_handler& handler);
     void handleHandshake(int clnt_sock);
     void handleHandshake(WebsocketHandshake& handshake);
+    bool handleMessage(WebsocketMessage& message);
     void handleFrame(int clnt_sock);
     void handleFrame(sock_reader& sr);
 private:
@@ -30,9 +31,20 @@ private:
     std::map<int, WebsocketSession> mSessionMap;
 };
 
-class websocket_server : public server, public websocket_server_plugin{
+
+class websocket_connection : public connection{
+public:
+    websocket_connection(int clnt_sock);
+public:
+    bool read(server* pServer) override;
 private:
-    void handle_connection(int clnt_sock, bool initial) override;
+    int mOffset;
+    void* mRequest;
+    bool isHandshake;
+};
+
+
+class websocket_server : public nonblocking_server<websocket_connection>, public websocket_server_plugin{
 };
 
 #endif //HTTP_WEBSOCKET_SERVER_H

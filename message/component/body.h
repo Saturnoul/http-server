@@ -37,27 +37,32 @@ private:
 
 class body {
 public:
-    body() : mData(""), mLen(0){};
-    explicit body(body_type type): type(std::move(type)), mData(nullptr), mLen(0){};
+    body() : mData(""), mLen(0), mHandledBodyLen(0){};
+    explicit body(body_type type): type(std::move(type)), mData(nullptr), mLen(0), mHandledBodyLen(0){};
 
 public:
     template<typename bodyType>
-    static body* NewBody(sock_reader& sr, const body_type& type);
-    static body* createBody(const body_type&, sock_reader& sr);
+    static body* NewBody(const body_type& type, sock_reader* sr);
+    static body* createBody(const body_type& type, sock_reader* sr);
 
 public:
     virtual void parse(sock_reader& sr);
     virtual void write(int clnt_sock);
 
+    bool completed() const;
+    virtual int read(const char* buf, int len);
+
 public:
     int size() const;
     void setData(const void* data, int len);
 private:
-    static std::map<const body_type, const std::function<body*(sock_reader&, const body_type&)>> BODY_TYPE_MAP;
+    static std::map<const body_type, const std::function<body*(const body_type&, sock_reader*)>> BODY_TYPE_MAP;
 protected:
     body_type type;
     const char* mData;
     int mLen;
+    bool mComplete;
+    int mHandledBodyLen;
 };
 
 
@@ -69,7 +74,7 @@ public:
     ~form_file();
 
 public:
-    void write(char *buf, const int len);
+    void write(const char *buf, const int len);
     bool empty();
 
 private:
@@ -87,10 +92,11 @@ private:
 
 class FormData : public body {
 public:
-    explicit FormData(const body_type& type) : body(type){}
+    explicit FormData(const body_type& type);
 
 public:
     void parse(sock_reader& sr) override;
+    int read(const char* buf, int len) override;
     const form_file& getFile(std::string& name);
     const std::string& getParam(std::string& name);
 private:
@@ -98,6 +104,10 @@ private:
     static bool isFile(std::string& line);
     static std::string getName(std::string& line);
     static std::string getFileName(std::string& line);
+
+    std::string mStartBoundary;
+    std::string mEndBoundary;
+    form_file* file;
 
 private:
     std::map<std::string, std::string> mParams;
@@ -111,6 +121,7 @@ public:
 
 public:
     void parse(sock_reader& sr) override;
+    int read(const char* buf, int len) override;
     std::string& getParam(std::string& name);
 private:
     std::map<std::string, std::string> mParams;
@@ -123,9 +134,11 @@ public:
 
 public:
     void parse(sock_reader& sr) override;
+    int read(const char *buf, int len) override;
+
     Json::Value mJson;
 private:
-
+    std::string json_str;
     static Json::CharReaderBuilder READER;
 };
 

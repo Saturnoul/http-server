@@ -14,6 +14,8 @@ const unsigned char C_80 = 0x80;
 const unsigned char C_0F = 0x0F;
 const unsigned char C_7F = 0x7F;
 
+const int LEAST_BUF_LEN = 12;
+
 const unsigned short PONG = 0x8A00;
 const unsigned short CLOSE_FRAME = 0x8800;
 
@@ -24,6 +26,26 @@ WebsocketHandshake::WebsocketHandshake(sock_reader& sr) {
     if(mValid){
         respond();
     }
+}
+
+WebsocketHandshake::WebsocketHandshake(int clnt_sock) {
+    mClntSock = clnt_sock;
+    mRequestHeader = new request_header;
+}
+
+int WebsocketHandshake::read(const char *buf, int len) {
+    int readLen = mRequestHeader->read(buf, len);
+    if(mRequestHeader->completed()) {
+        mValid = verifyRequest(mRequestHeader);
+        if(mValid) {
+            respond();
+        }
+    }
+    return readLen;
+}
+
+bool WebsocketHandshake::completed() const {
+    return mRequestHeader->completed();
 }
 
 bool WebsocketHandshake::verifyRequest(const request_header* header) {
@@ -76,6 +98,7 @@ void WebsocketHandshake::close() const {
 WebsocketHandshake::WebsocketHandshake(HttpRequest &request, const int clnt_sock): mClntSock(clnt_sock) {
     mRequestHeader = dynamic_cast<request_header *>(request.mHeader);
     request.mHeader = nullptr;
+    respond();
 }
 
 WebsocketHandshake::~WebsocketHandshake() {
@@ -87,12 +110,20 @@ WebsocketMessage::~WebsocketMessage() {
     delete[] data;
 }
 
-bool WebsocketMessage::isCompleted() const {
-    return completed;
+bool WebsocketMessage::completed() const {
+    return mComplete;
 }
 
-void WebsocketMessage::readFrame(const char *frame, int len) {
-    unsigned char first_byte = frame[0], second_byte = frame[1];
+int WebsocketMessage::read(const char* buf, int len) {
+    if(mParsed) {
+        write(buf, len);
+        return len;
+    }
+
+    if(len < LEAST_BUF_LEN) {
+        return 0;
+    }
+    unsigned char first_byte = buf[0], second_byte = buf[1];
     int cur_pos = 2;
 
     fin = static_cast<bool>(first_byte & C_80);
@@ -103,19 +134,21 @@ void WebsocketMessage::readFrame(const char *frame, int len) {
         payload_len = payloadLen;
     }else if (payloadLen == 126) {
         short temp = 0;
-        memcpy(&temp, frame + cur_pos, 2);
+        memcpy(&temp, buf + cur_pos, 2);
         payload_len = temp;
         cur_pos += 2;
     }else {
-        memcpy(&payload_len, frame + cur_pos, 8);
+        memcpy(&payload_len, buf + cur_pos, 8);
         cur_pos += 8;
     }
     if(mask){
-        memcpy(&mask_key, frame + cur_pos, 4);
+        memcpy(&mask_key, buf + cur_pos, 4);
         cur_pos += 4;
     }
     data = new char[payloadLen];
-    memcpy(data, frame + cur_pos, payloadLen);
+    write(buf + cur_pos, len - cur_pos);
+    mParsed = true;
+    return len;
 }
 
 void WebsocketMessage::decrypt() {
@@ -125,6 +158,23 @@ void WebsocketMessage::decrypt() {
     for(int i = 0; i < payload_len; i++){
         data[i] = data[i] ^ mask_key[i % 4];
     }
+}
+
+int WebsocketMessage::getSocket() const {
+    return clnt_sock;
+}
+
+void WebsocketMessage::write(const char *buf, int len) {
+    memcpy(data + mCurLen, buf, len);
+    mCurLen += len;
+    mComplete = mCurLen == payload_len;
+}
+
+void WebsocketMessage::reset() {
+    mCurLen = 0;
+    mComplete = false;
+    mParsed = false;
+    delete data;
 }
 
 

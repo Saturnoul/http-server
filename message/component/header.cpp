@@ -39,6 +39,10 @@ bool header::exist(const string &key) const{
     return true;
 }
 
+bool header::completed() const {
+    return mComplete;
+}
+
 
 request_header::request_header(sock_reader &sr) {
     parse(sr);
@@ -79,7 +83,7 @@ void request_header::parse(sock_reader &sr) {
     sr.parseStream([this, &msg](char *buf, int len, sock_reader_flag& flag) -> int {
         msg.append(buf, len);
         auto headerEnd = BMSearch(buf, len, HEADER_BODY_SEPARATOR, 4);
-        if (headerEnd != string::npos) {
+        if (headerEnd != -1) {
             auto cb = std::bind(&request_header::addHeader, this, placeholders::_1);
             split(msg.substr(0, headerEnd), "\r\n", cb);
             flag.nextRead = false;
@@ -102,6 +106,18 @@ body_type request_header::getContentType() {
     } else {
         return body_type(ct, contentLen);
     }
+}
+
+int request_header::read(const char *buf, int len) {
+    header_str.append(buf, len);
+    auto headerEnd = BMSearch(buf, len, HEADER_BODY_SEPARATOR, 4);
+    if (headerEnd != -1) {
+        auto cb = std::bind(&request_header::addHeader, this, placeholders::_1);
+        split(header_str.substr(0, headerEnd), "\r\n", cb);
+        mComplete = true;
+        return headerEnd + 4;
+    }
+    return len;
 }
 
 

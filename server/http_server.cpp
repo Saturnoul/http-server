@@ -9,7 +9,7 @@
 const char *http_server_plugin::POST = "POST";
 const char *http_server_plugin::GET = "GET";
 
-const int READ_BUF_SIZE = 1024;
+const int READ_mBuf_SIZE = 1024;
 
 void http_server_plugin::post(const std::string &path, const handler_type &callback) {
     setHandler("POST", path, callback);
@@ -65,13 +65,13 @@ bool http_server_plugin::isStaticResource(std::string &method, std::string &path
 }
 
 void http_server_plugin::handleStaticResource(std::string &path, HttpResponse &response) {
-    char buf[READ_BUF_SIZE];
+    char mBuf[READ_mBuf_SIZE];
     int readLen = 0;
 
     FILE* fp = fopen(resource::getInstance()->getFullPath(path).c_str(), "r");
     response.directoryWriteHeader();
-    while ((readLen = fread(buf, 1, READ_BUF_SIZE, fp)) > 0) {
-        response.directWriteBody(buf, readLen);
+    while ((readLen = fread(mBuf, 1, READ_mBuf_SIZE, fp)) > 0) {
+        response.directWriteBody(mBuf, readLen);
     }
     response.end();
     fclose(fp);
@@ -81,8 +81,36 @@ bool http_server_plugin::isPathMapped(std::string &method, std::string &path) {
     return mRouter[method].find(path) != mRouter[method].end();
 }
 
-void http_server::handle_connection(int clnt_sock, bool initial) {
+
+void http_server::handle_connection_thread(int clnt_sock) {
     HttpRequest request(clnt_sock);
     DefaultHttpResponse response(clnt_sock);
     handleHttpRequest(request, response);
+}
+
+
+http_connection::http_connection(int clnt_sock) : connection(clnt_sock) {
+    mRequest = new HttpRequest;
+}
+
+bool http_connection::read(server* pServer) {
+    int len = ::recv(clnt_sock, mBuf + mOffset, SERVER_BUF_SIZE - mOffset, MSG_DONTWAIT);
+    if(len <= 0){
+        return true;
+    }
+    memcpy(mBuf, mBuf, mOffset);
+    int readLen = mRequest->read(mBuf, len);
+    bool completed = mRequest->completed();
+    if(completed) {
+        auto pHttpServer = dynamic_cast<nonblocking_http_server*>(pServer);
+        pHttpServer->handleHttpRequest(*mRequest, clnt_sock);
+    } else {
+        mOffset = len - readLen;
+        memcpy(mBuf, mBuf + readLen, mOffset);
+    }
+    return !completed;
+}
+
+http_connection::~http_connection() {
+    delete mRequest;
 }

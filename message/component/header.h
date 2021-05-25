@@ -13,14 +13,18 @@
 
 class header {
 public:
+    header() : mComplete(false){};
+public:
     void setHeader(const std::string& key, const std::string& value);
     const std::string & getHeader(const std::string& key) const;
     bool exist(const std::string& key) const;
     int getContentLength();
-    bool isValid() const;
+    bool completed() const;
+
     virtual void write(int clnt_sock){}
 protected:
     std::map<std::string, std::string> mHeaders;
+    bool mComplete;
 };
 
 
@@ -32,11 +36,14 @@ public:
     const char* getQuery(const std::string& key);
     body_type getContentType();
     void parse(sock_reader& sr);
+    int read(const char* buf, int len);
 private:
     void addHeader(const std::string&& header_line);
     void parseQuery(const std::string& path);
 private:
     std::unordered_map<std::string, std::string> queries;
+
+    std::string header_str;
 };
 
 

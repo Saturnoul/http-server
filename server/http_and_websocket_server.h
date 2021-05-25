@@ -10,10 +10,22 @@
 #include "http_server.h"
 #include "../message/websocket/WebsocketMessage.h"
 
+class http_and_websocket_server;
 
-class http_and_websocket_server : public server, public http_server_plugin, public websocket_server_plugin{
+class http_and_websocket_connection : connection{
 public:
-    void start_with_custom() override;
+    http_and_websocket_connection(int clnt_sock);
+public:
+
+    bool read(server* pServer) override;
+private:
+    bool isRequestTypeConfirmed;
+    int mOffset;
+    bool isMessage;
+};
+
+class http_and_websocket_server : public nonblocking_server<http_and_websocket_connection>, public http_server_plugin, public websocket_server_plugin{
+
 };
 
 

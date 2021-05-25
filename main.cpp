@@ -26,10 +26,11 @@ int main() {
     s.setStaticPath("/home/saturn/Pictures");
 
     s.post("/saturn", [](const HttpRequest& request, HttpResponse& response){
-        std::string msg;
-        auto session = request.getSession();
-        auto name = session.get("name");
-        std::cout << "Welcome: " << name << std::endl;
+//        std::string msg;
+//        auto session = request.getSession();
+//        auto name = session.get("name");
+//        std::cout << "Welcome: " << name << std::endl;
+        auto json = dynamic_cast<JsonData*>(request.getBody())->mJson;
     });
 
     s.post("/login", [](const HttpRequest& request, HttpResponse& response){
@@ -39,7 +40,7 @@ int main() {
         session.set("name", "luohao");
     });
 
-    s.start_with_custom();
+    s.start_with_epoll();
 
     return 0;
 }

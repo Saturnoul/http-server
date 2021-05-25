@@ -23,6 +23,14 @@ HttpRequest::HttpRequest(HttpRequest &&other) noexcept {
     other.mBody = nullptr;
 }
 
+HttpRequest& HttpRequest::operator=(HttpRequest &&other)  noexcept {
+    this->mHeader = other.mHeader;
+    this->mBody = other.mBody;
+    other.mHeader = nullptr;
+    other.mBody = nullptr;
+    return *this;
+}
+
 void HttpRequest::parse(const int clnt_sock) {
     sock_reader sr(clnt_sock);
     parse(sr);
@@ -30,8 +38,9 @@ void HttpRequest::parse(const int clnt_sock) {
 
 void HttpRequest::parse(sock_reader &sr) {
     auto h = new request_header(sr);
-    mBody = body::createBody(h->getContentType(), sr);
+    mBody = body::createBody(h->getContentType(), &sr);
     mHeader = h;
+    mComplete = true;
 }
 
 void HttpRequest::setHeader(const std::string &key, const std::string &value) {
@@ -71,4 +80,23 @@ HttpSession &HttpRequest::getSession() const {
 
 std::string HttpRequest::getCookie() const {
     return mCookie;
+}
+
+int HttpRequest::read(char *buf, int len) {
+    int readLen = 0;
+    mHeader || (mHeader = new request_header);
+    if(mHeader->completed()){
+        readLen = mBody->read(buf, len);
+    }else {
+        readLen = dynamic_cast<request_header*>(mHeader)->read(buf, len);
+        if(mHeader->completed()){
+            mBody = body::createBody(dynamic_cast<request_header*>(mHeader)->getContentType(), nullptr);
+        }
+    }
+    mComplete = mHeader->completed() && mBody->completed();
+    return readLen;
+}
+
+bool HttpRequest::completed() const {
+    return mComplete;
 }

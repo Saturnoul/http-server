@@ -18,6 +18,7 @@ enum class WebSocketOp : unsigned char {
 
 class WebsocketHandshake{
 public:
+    explicit WebsocketHandshake(int clnt_sock);
     explicit WebsocketHandshake(sock_reader& sr);
     explicit WebsocketHandshake(HttpRequest& request, int clnt_scok);
     ~WebsocketHandshake();
@@ -27,13 +28,16 @@ public:
     std::string getSecretKey();
     int getSocket() const;
     void close() const;
+    bool completed() const;
+
+    int read(const char* buf, int len);
 
     static bool verifyRequest(const request_header* request);
 private:
     void respond();
 private:
     request_header* mRequestHeader;
-    bool mValid;
+    bool mValid = false;
     int mClntSock;
 
     friend class http_and_websocket_server;
@@ -43,22 +47,30 @@ private:
 
 class WebsocketMessage{
 public:
-    WebsocketMessage()=default;
+    WebsocketMessage() : clnt_sock(-1) {}
+    explicit WebsocketMessage(int clnt_sock) : clnt_sock(clnt_sock) {}
     ~WebsocketMessage();
 
 public:
-    void readFrame(const char* frame, int len);
-    bool isCompleted()const;
+    int read(const char* buf, int len);
+    bool completed()const;
+    int getSocket() const;
+    void reset();
 
 private:
     void decrypt();
+    void write(const char* buf, int len);
 private:
     bool fin = true, mask = true;
     WebSocketOp op = WebSocketOp::CLOSE;
     unsigned long long payload_len = 0;
     unsigned char mask_key[4]{};
+private:
     char* data = nullptr;
-    bool completed = true;
+    int mCurLen = 0;
+    bool mComplete = false;
+    bool mParsed = false;
+    int clnt_sock;
 
     friend class websocket_server_plugin;
 };

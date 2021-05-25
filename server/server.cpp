@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <iostream>
 #include <sys/socket.h>
+#include <fcntl.h>
 
 
 server &server::ip(in_addr_t ip) {
@@ -70,13 +71,15 @@ void server::start_with_epoll() {
         for (int i = 0; i < event_cnt; i++) {
             if (epoll_events[i].data.fd == serv_socket) {
                 clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
-                event.events = EPOLLIN | EPOLLET;
+                SetBlock(clnt_sock, false);
+                event.events = EPOLLIN;
                 event.data.fd = clnt_sock;
-                handle_connection(clnt_sock, true);
                 epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sock, &event);
             } else {
                 clnt_sock = epoll_events[i].data.fd;
-                handle_connection(clnt_sock, false);
+                if(!handle_connection_epoll(clnt_sock)) {
+                    epoll_ctl(epfd, EPOLL_CTL_DEL, clnt_sock, &event);
+                }
             }
         }
     }
@@ -95,7 +98,7 @@ void server::start_with_thread_pool() {
     while ((clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size)) != -1) {
 //        std::cout << inet_ntoa(clnt_addr.sin_addr) << std::endl;
         threadPool.enqueue([this, clnt_sock](){
-            handle_connection(clnt_sock, true);
+            handle_connection_thread(clnt_sock);
         });
     }
     close(serv_socket);
@@ -105,7 +108,55 @@ void server::start_with_custom() {
     std::cout << "You need to implement your custom starter" << std::endl;
 }
 
-void server::handle_connection(int clnt_sock, bool initial) {
+bool server::handle_connection_epoll(int clnt_sock) {
+    std::cout << "You need to implement your starter" << std::endl;
+    return false;
+}
+
+void server::handle_connection_thread(int clnt_sock) {
     std::cout << "You need to implement your starter" << std::endl;
 }
 
+bool server::SetBlock(int sock,bool isblock)
+{
+    int re = 0;
+//通过宏区分windows和linux，如果是windows64位程序判断 _WIN64宏
+#ifdef WIN32
+    unsigned long ul = 0;
+	if(!isblock) ul = 1;
+	re = ioctlsocket(sock, FIONBIO, (unsigned long*)&ul);
+#else
+    //先取到现有描述符属性，保证本次更改不变动原有属性
+    int flags = fcntl(sock, F_GETFL, 0);
+    if (flags < 0) {
+        return false;
+    }
+    if(isblock)
+    {
+        flags = flags & ~O_NONBLOCK;
+    }
+    else
+    {
+        flags = flags | O_NONBLOCK;
+    }
+    re = fcntl(sock, F_SETFL, flags);
+#endif
+    if (re != 0) return false;
+    return true;
+}
+
+
+bool connection::operator<(const connection &conn) const {
+    return this->clnt_sock < conn.clnt_sock;
+}
+
+bool connection::read(server* srv) {
+    return false;
+}
+
+connection::connection(int clnt_sock) : clnt_sock(clnt_sock){
+}
+
+connection::~connection() {
+    delete mRequest;
+}

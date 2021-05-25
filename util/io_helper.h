@@ -9,6 +9,11 @@
 #include <stdio.h>
 #include <set>
 
+#define SAFE_DELETE(p) \
+delete p;              \
+p = nullptr;
+
+
 const int BUF_SIZE = 1024;
 
 struct sock_reader_flag {

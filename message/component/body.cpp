@@ -25,34 +25,36 @@ body_type body_type::XWWW = body_type("application/x-www-form-urlencoded");
 body_type body_type::JSON = body_type("application/json");
 body_type body_type::EMTPY = body_type("empty");
 
-int body_type::size() const{
+int body_type::size() const {
     return mSize;
 }
 
 
 template<typename bodyType>
-body* body::NewBody(sock_reader& sr, const body_type& type){
-    if(type == body_type::EMTPY){
-        return new body; 
-    }
-
+body *body::NewBody(const body_type &type, sock_reader* sr) {
     auto b = new bodyType(type);
-    b->parse(sr);
+    if (type == body_type::EMTPY) {
+        b->mComplete = true;
+        return b;
+    }
+    if(sr) {
+        b->parse(*sr);
+    }
     return b;
 }
 
-std::map<const body_type, const std::function<body*(sock_reader&, const body_type&)>> body::BODY_TYPE_MAP = {
-        {body_type::FORM, NewBody<FormData>},
-        {body_type::XWWW, NewBody<XWWWFormUrlEncoded>},
-        {body_type::JSON, NewBody<JsonData>},
-        {body_type::EMTPY, [](sock_reader&, const body_type&)->body*{return new body;}}
+std::map<const body_type, const std::function<body *(const body_type &, sock_reader*)>> body::BODY_TYPE_MAP = {
+        {body_type::FORM,  NewBody<FormData>},
+        {body_type::XWWW,  NewBody<XWWWFormUrlEncoded>},
+        {body_type::JSON,  NewBody<JsonData>},
+        {body_type::EMTPY, NewBody<body>}
 };
 
-body* body::createBody(const body_type& type, sock_reader& sr) {
-    return BODY_TYPE_MAP[type](sr, type);
+body *body::createBody(const body_type &type, sock_reader* sr) {
+    return BODY_TYPE_MAP[type](type, sr);
 }
 
-void body::parse(sock_reader& sr) {
+void body::parse(sock_reader &sr) {
 
 }
 
@@ -65,22 +67,30 @@ int body::size() const {
 }
 
 void body::setData(const void *data, int len) {
-    mData = reinterpret_cast<const char*>(data);
+    mData = reinterpret_cast<const char *>(data);
     mLen = len;
 }
 
+bool body::completed() const {
+    return mComplete;
+}
 
-form_file::form_file(string &name) : mName(name){
+int body::read(const char *buf, int len) {
+    return 0;
+}
+
+
+form_file::form_file(string &name) : mName(name) {
     mData = new char[INITIAL_FORM_SIZE];
     mCapacity = INITIAL_FORM_SIZE;
     mCurLen = 0;
 }
 
 
-void form_file::write(char *buf, const int len) {
-    if(mCurLen + len > mCapacity){
+void form_file::write(const char *buf, const int len) {
+    if (mCurLen + len > mCapacity) {
         int newCapacity = mCapacity * FORM_FILE_EXPAND_FACTOR;
-        auto* newData = new char[newCapacity];
+        auto *newData = new char[newCapacity];
         memcpy(newData, mData, mCurLen);
         delete[] mData;
         mData = newData;
@@ -98,8 +108,8 @@ void form_file::setEmpty() {
     mData = nullptr;
 }
 
-const form_file& form_file::operator=(const form_file& other){
-    if(this == &other){
+const form_file &form_file::operator=(const form_file &other) {
+    if (this == &other) {
         return *this;
     }
     mName = other.mName;
@@ -109,7 +119,7 @@ const form_file& form_file::operator=(const form_file& other){
     return *this;
 }
 
-const form_file& form_file::operator=(form_file&& other) noexcept {
+const form_file &form_file::operator=(form_file &&other) noexcept {
     this->mName = other.mName;
     this->mData = other.mData;
     this->mCapacity = other.mCapacity;
@@ -119,36 +129,37 @@ const form_file& form_file::operator=(form_file&& other) noexcept {
 }
 
 form_file::~form_file() {
-    if(!mData){
+    if (!mData) {
         delete[] mData;
     }
 }
 
 
-void FormData::parse(sock_reader& sr) {
+FormData::FormData(const body_type &type) : body(type) {
     auto boundary = getBoundary();
-    auto start_boundary = boundary.insert(0, "--");
-    auto end_boundary = boundary.append("--");
-    int handledBodyLen = 0, bodySize = size();
-    form_file* file = nullptr;
-    sr.parseStream([this, &start_boundary, &end_boundary, &file, &handledBodyLen, bodySize](char* buf, int len, sock_reader_flag& flag) -> int {
+    mStartBoundary = boundary.insert(0, "--");
+    mEndBoundary = boundary.append("--");
+    file = nullptr;
+}
+
+void FormData::parse(sock_reader &sr) {
+    sr.parseStream([this](char *buf, int len, sock_reader_flag &flag) -> int {
         int handledLen = 0;
-        if(file){
-            int endBoundaryPos = BMSearch(buf, len, end_boundary.c_str(), end_boundary.length());
-            int startBundaryPos = BMSearch(buf, len, start_boundary.c_str(), start_boundary.length());
-            if(startBundaryPos < 0){
+        if (file) {
+            int endBoundaryPos = BMSearch(buf, len, mEndBoundary.c_str(), mEndBoundary.length());
+            int startBundaryPos = BMSearch(buf, len, mStartBoundary.c_str(), mStartBoundary.length());
+            if (startBundaryPos < 0) {
                 file->write(buf, len);
                 handledLen = len;
-            } else{
+            } else {
                 file->write(buf, startBundaryPos);
                 file = nullptr;
                 handledLen = endBoundaryPos < 0 ? startBundaryPos : len;
             }
-        }
-        else {
+        } else {
             int p = 0;
             string str(buf, len);
-            while ((p = str.find(start_boundary, p)) != string::npos) {
+            while ((p = str.find(mStartBoundary, p)) != string::npos) {
                 auto metaLine = next_line(str, p);
                 if (metaLine.empty()) {
                     break;
@@ -174,10 +185,57 @@ void FormData::parse(sock_reader& sr) {
                 }
             }
         }
-        flag.nothingToRead = handledBodyLen + len == bodySize;
-        handledBodyLen += handledLen;
+        mHandledBodyLen += handledLen;
+        flag.nothingToRead = mHandledBodyLen == size();
         return handledLen;
     });
+}
+
+int FormData::read(const char *buf, int len) {
+    int handledLen = 0;
+    if (file) {
+        int endBoundaryPos = BMSearch(buf, len, mEndBoundary.c_str(), mEndBoundary.length());
+        int startBundaryPos = BMSearch(buf, len, mStartBoundary.c_str(), mStartBoundary.length());
+        if (startBundaryPos < 0) {
+            file->write(buf, len);
+            handledLen = len;
+        } else {
+            file->write(buf, startBundaryPos);
+            file = nullptr;
+            handledLen = endBoundaryPos < 0 ? startBundaryPos : len;
+        }
+    } else {
+        int p = 0;
+        string str(buf, len);
+        while ((p = str.find(mStartBoundary, p)) != string::npos) {
+            auto metaLine = next_line(str, p);
+            if (metaLine.empty()) {
+                break;
+            }
+            if (isFile(metaLine)) {
+                auto name = getName(metaLine);
+                auto fileName = getFileName(metaLine);
+                if (next_line(str, p).empty()) {
+                    break;
+                }
+                mFiles[name] = form_file(fileName);
+                file = &mFiles[name];
+                handledLen = p + 3;
+                break;
+            } else {
+                auto name = getName(metaLine);
+                string data = next_n_line(str, p, 2);
+                if (data.empty()) {
+                    break;
+                }
+                mParams[name] = data;
+                handledLen = p + data.length() + 3;
+            }
+        }
+    }
+    mHandledBodyLen += handledLen;
+    mComplete = mHandledBodyLen == size();
+    return handledLen;
 }
 
 std::string FormData::getBoundary() {
@@ -187,7 +245,7 @@ std::string FormData::getBoundary() {
 
 bool FormData::isFile(string &line) {
     int part_num = 0;
-    split(line, ';', [&part_num](const std::string&& str){
+    split(line, ';', [&part_num](const std::string &&str) {
         part_num++;
     });
     return part_num == 3;
@@ -205,25 +263,24 @@ std::string FormData::getFileName(string &line) {
     return trim(line.substr(p + 1), " \"");
 }
 
-const form_file& FormData::getFile(string &name) {
+const form_file &FormData::getFile(string &name) {
     return mFiles[name];
 }
 
-const std::string& FormData::getParam(string &name) {
+const std::string &FormData::getParam(string &name) {
     return mParams[name];
 }
 
 
-void XWWWFormUrlEncoded::parse(sock_reader& sr) {
-    int handledBodyLen = 0, bodySize= size();
-    sr.parseStream([this, &handledBodyLen, bodySize](char* buf, int len, sock_reader_flag& flag) -> int{
-        flag.nothingToRead = handledBodyLen + len == bodySize;
-       int handled = split(string(buf, len), XWWW_DELIMETER, [this](const std::string&& str){
-           auto pos = str.find(XWWW_KV_CONNECTOR);
-           mParams[str.substr(0, pos)] = str.substr(pos + 1);
-       }, !flag.nothingToRead);
-       handledBodyLen += handled;
-       return handled;
+void XWWWFormUrlEncoded::parse(sock_reader &sr) {
+    sr.parseStream([this](char *buf, int len, sock_reader_flag &flag) -> int {
+        flag.nothingToRead = mHandledBodyLen + len == size();
+        int handled = split(string(buf, len), XWWW_DELIMETER, [this](const std::string &&str) {
+            auto pos = str.find(XWWW_KV_CONNECTOR);
+            mParams[str.substr(0, pos)] = str.substr(pos + 1);
+        }, !flag.nothingToRead);
+        mHandledBodyLen += handled;
+        return handled;
     });
 }
 
@@ -231,19 +288,40 @@ std::string &XWWWFormUrlEncoded::getParam(string &name) {
     return mParams[name];
 }
 
+int XWWWFormUrlEncoded::read(const char *buf, int len) {
+    mComplete = mHandledBodyLen + len == size();
+    int handled = split(string(buf, len), XWWW_DELIMETER, [this](const std::string &&str) {
+        auto pos = str.find(XWWW_KV_CONNECTOR);
+        mParams[str.substr(0, pos)] = str.substr(pos + 1);
+    }, !mComplete);
+    mHandledBodyLen += handled;
+    return handled;
+}
+
 
 Json::CharReaderBuilder JsonData::READER = Json::CharReaderBuilder();
 
-void JsonData::parse(sock_reader& sr) {
-    int handledBodyLen = 0, bodySize =size();
-    std::string json_str;
-    sr.parseStream([this, &handledBodyLen, bodySize, &json_str](char *buf, int len, sock_reader_flag& flag) -> int {
-        flag.nothingToRead = handledBodyLen + len == bodySize;
+void JsonData::parse(sock_reader &sr) {
+    sr.parseStream([this](char *buf, int len, sock_reader_flag &flag) -> int {
         json_str.append(buf, len);
-        handledBodyLen += len;
+        mHandledBodyLen += len;
+        flag.nothingToRead = mHandledBodyLen == size();
         return len;
     });
     Json::IStringStream iss(json_str);
     std::string errs;
     Json::parseFromStream(READER, iss, &mJson, &errs);
+}
+
+int JsonData::read(const char *buf, int len) {
+    json_str.append(buf, len);
+    mHandledBodyLen += len;
+    mComplete = mHandledBodyLen == size();
+
+    if (mComplete) {
+        Json::IStringStream iss(json_str);
+        std::string errs;
+        Json::parseFromStream(READER, iss, &mJson, &errs);
+    }
+    return len;
 }
