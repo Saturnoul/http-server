@@ -98,7 +98,6 @@ bool http_connection::read(server* pServer) {
     if(len <= 0){
         return true;
     }
-    memcpy(mBuf, mBuf, mOffset);
     int readLen = mRequest->read(mBuf, len);
     bool completed = mRequest->completed();
     if(completed) {

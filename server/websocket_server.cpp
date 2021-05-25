@@ -17,7 +17,6 @@ bool websocket_connection::read(server* pServer) {
     if(len <= 0){
         return true;
     }
-    memcpy(mBuf, mBuf, mOffset);
     auto pWsServer = dynamic_cast<websocket_server*>(pServer);
     if(isHandshake) {
         auto handshake = reinterpret_cast<WebsocketHandshake*>(mRequest);

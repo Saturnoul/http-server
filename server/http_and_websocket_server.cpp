@@ -29,7 +29,6 @@ bool http_and_websocket_connection::read(server *pServer) {
         isMessage = !static_cast<bool>(mBuf[0] & C_40);
         isRequestTypeConfirmed = true;
     }
-    memcpy(mBuf, mBuf, mOffset);
     auto complex_server = dynamic_cast<http_and_websocket_server*>(pServer);
     if(isMessage){
         mRequest || (mRequest = new WebsocketMessage(clnt_sock));

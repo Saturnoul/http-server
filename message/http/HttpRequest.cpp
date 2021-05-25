@@ -91,6 +91,7 @@ int HttpRequest::read(char *buf, int len) {
         readLen = dynamic_cast<request_header*>(mHeader)->read(buf, len);
         if(mHeader->completed()){
             mBody = body::createBody(dynamic_cast<request_header*>(mHeader)->getContentType(), nullptr);
+            readLen += mBody->read(buf + readLen, len - readLen);
         }
     }
     mComplete = mHeader->completed() && mBody->completed();
