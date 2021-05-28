@@ -7,15 +7,16 @@
 
 
 void HttpResponse::send() {
-    mHeader->write(clnt_sock);
-    mBody->write(clnt_sock);
+    checkHeader();
+    write(clnt_sock, mRawData.data(), mRawData.length());
+    end();
 }
 
-void HttpResponse::directWriteBody(char *data, int len) const {
+void HttpResponse::directlyWriteBody(char *data, int len) const {
     write(clnt_sock, data, len);
 }
 
-void HttpResponse::directoryWriteHeader() const {
+void HttpResponse::directlyWriteHeader() const {
     mHeader->write(clnt_sock);
 }
 
@@ -27,18 +28,31 @@ void HttpResponse::setProtocol(const std::string &protocol) {
     dynamic_cast<response_header*>(mHeader)->setProtocol(protocol);
 }
 
-void HttpResponse::setBody(body* b) {
-    mBody = b;
-    mHeader->setHeader("Content-Length", std::to_string(mBody->size()));
+void HttpResponse::setBody(void* data, int len) {
+    mHeader->setHeader("Content-Length", std::to_string(len));
+    mRawData = dynamic_cast<response_header*>(mHeader)->getRawData();
+    mRawData.append(reinterpret_cast<char*>(data), len);
+    mBodySet = true;
 }
 
 HttpResponse::HttpResponse(const int clnt_sock) : clnt_sock(clnt_sock){
     mHeader = new response_header;
-    mBody = new body;
+    mBodySet = false;
 }
 
-void HttpResponse::end() {
+void HttpResponse::end() const {
     close(clnt_sock);
+}
+
+void HttpResponse::checkHeader() {
+    if(!mBodySet) {
+        mRawData = dynamic_cast<response_header*>(mHeader)->getRawData();
+    }
+}
+
+raw_data HttpResponse::getRawData() {
+    checkHeader();
+    return std::move(mRawData);
 }
 
 

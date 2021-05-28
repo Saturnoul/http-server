@@ -8,12 +8,20 @@
 #include <arpa/inet.h>
 #include <sys/epoll.h>
 #include <map>
+#include <unistd.h>
+#include <atomic>
+#include <iostream>
 #include "../thirdparty/thread_pool.h"
 
 const int THREAD_POOL_SIZE = 16;
 const int EPOLL_TIMEOUT = 500;
 const int EPOLL_SIZE = 100;
 const int SERVER_BUF_SIZE = 1024;
+
+struct epoll_connection_flag {
+    bool listen_for_out;
+    bool remove;
+};
 
 class server {
 public:
@@ -33,7 +41,7 @@ public:
 
 protected:
     virtual void handle_connection_thread(int clnt_sock);
-    virtual bool handle_connection_epoll(int clnt_sock);
+    virtual void handle_connection_epoll(int clnt_sock, uint32_t events, epoll_connection_flag& flag);
 protected:
     sockaddr_in address;
     int serv_socket;
@@ -48,13 +56,28 @@ public:
     connection(int clnt_sock);
 public:
     bool operator<(const connection& conn) const;
+    bool ready() const;
+    void setData(const char* data, int len);
+    bool write();
+    bool writeFile();
+
+public:
+    void setFile(FILE* fp) {
+        mFp = fp;
+    }
+public:
     virtual bool read(server* srv);
     virtual ~connection();
 
 protected:
     int clnt_sock;
+    std::atomic_bool mReadyToWrite;
+    const char* mData;
+    FILE* mFp;
+    int mLen;
+    int mWrittenLen;
     void* mRequest;
-    char mBuf[SERVER_BUF_SIZE] {};
+    char mBuf[SERVER_BUF_SIZE];
 };
 
 
@@ -73,20 +96,26 @@ public:
     }
 
 private:
-    bool handle_connection_epoll(int clnt_sock) override {
+    void handle_connection_epoll(int clnt_sock, uint32_t events, epoll_connection_flag& flag) override {
+        CONNECTION_TYPE* conn;
         auto conn_pair = CONNECTION_MAP.find(clnt_sock);
-        bool shouldKeepListening = false;
+        std::cout << "Handle_epoll" << std::endl;
         if(conn_pair == CONNECTION_MAP.end()){
-            auto newConn = new CONNECTION_TYPE(clnt_sock);
-            if((shouldKeepListening = newConn->read(this))) {
-                addConnection(clnt_sock, newConn);
-            }
-        }else {
-            if(!(shouldKeepListening = conn_pair->second->read(this))) {
+            conn = new CONNECTION_TYPE(clnt_sock);
+            addConnection(clnt_sock, conn);
+        } else {
+            conn = conn_pair->second;
+        }
+        if(events & EPOLLIN) {
+            std::cout << "Read: " << std::endl;
+            flag.listen_for_out = conn->read(this);
+        }
+        else if(events & EPOLLOUT && conn->ready()) {
+            std::cout << "Write: " << clnt_sock << std::endl;
+            if((flag.remove = conn->write())) {
                 removeConnection(clnt_sock);
             }
         }
-        return shouldKeepListening;
     }
 
 protected:

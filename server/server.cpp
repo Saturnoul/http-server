@@ -5,7 +5,6 @@
 
 #include <memory.h>
 #include <cstdlib>
-#include <unistd.h>
 #include <iostream>
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -65,20 +64,32 @@ void server::start_with_epoll() {
 
     while (true) {
         event_cnt = epoll_wait(epfd, epoll_events, EPOLL_SIZE, EPOLL_TIMEOUT);
-        if (event_cnt == -1) {
-            break;
-        }
+//        if (event_cnt == -1) {
+//            break;
+//        }
         for (int i = 0; i < event_cnt; i++) {
-            if (epoll_events[i].data.fd == serv_socket) {
+            auto event = epoll_events[i];
+            if (event.data.fd == serv_socket) {
                 clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
                 SetBlock(clnt_sock, false);
-                event.events = EPOLLIN;
+                event.events = EPOLLIN | EPOLLET;
                 event.data.fd = clnt_sock;
                 epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sock, &event);
             } else {
-                clnt_sock = epoll_events[i].data.fd;
-                if(!handle_connection_epoll(clnt_sock)) {
+                clnt_sock = event.data.fd;
+                epoll_connection_flag flag {false, false};
+                std::cout << "Connection come: " << clnt_sock << std::endl;
+                handle_connection_epoll(clnt_sock, event.events, flag);
+                if(flag.listen_for_out) {
+                    std::cout << "Modify mode: " << std::endl;
+                    event.events = EPOLLOUT;
+                    event.data.fd = clnt_sock;
+                    epoll_ctl(epfd, EPOLL_CTL_MOD, clnt_sock, &event);
+                }
+                if(flag.remove) {
+                    std::cout << "Delete: " << std::endl;
                     epoll_ctl(epfd, EPOLL_CTL_DEL, clnt_sock, &event);
+                    close(clnt_sock);
                 }
             }
         }
@@ -93,7 +104,7 @@ void server::start_with_thread_pool() {
     sockaddr_in clnt_addr{};
     socklen_t clnt_addr_size = sizeof(clnt_addr);
 
-    ThreadPool threadPool = ThreadPool(THREAD_POOL_SIZE);
+    ThreadPool threadPool(THREAD_POOL_SIZE);
 
     while ((clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size)) != -1) {
 //        std::cout << inet_ntoa(clnt_addr.sin_addr) << std::endl;
@@ -108,9 +119,8 @@ void server::start_with_custom() {
     std::cout << "You need to implement your custom starter" << std::endl;
 }
 
-bool server::handle_connection_epoll(int clnt_sock) {
+void server::handle_connection_epoll(int clnt_sock, uint32_t events, epoll_connection_flag& flag) {
     std::cout << "You need to implement your starter" << std::endl;
-    return false;
 }
 
 void server::handle_connection_thread(int clnt_sock) {
@@ -155,8 +165,37 @@ bool connection::read(server* srv) {
 }
 
 connection::connection(int clnt_sock) : clnt_sock(clnt_sock){
+    mRequest = nullptr;
+    mReadyToWrite = false;
+    mData = nullptr;
+    mFp = nullptr;
+    mLen = 0;
+    mWrittenLen = 0;
+}
+
+bool connection::write() {
+    int writeLen = ::send(clnt_sock, mData + mWrittenLen, mLen - mWrittenLen, MSG_DONTWAIT);
+    if(writeLen > 0) {
+        mWrittenLen += writeLen;
+    }
+    return mWrittenLen == mLen;
+}
+
+bool connection::ready() const {
+    return mReadyToWrite;
+}
+
+void connection::setData(const char* data, int len) {
+    mData = data;
+    mLen = len;
+    mReadyToWrite.store(true, std::memory_order_release);
+}
+
+bool connection::writeFile() {
+
 }
 
 connection::~connection() {
     delete mRequest;
+    mFp && fclose(mFp);
 }

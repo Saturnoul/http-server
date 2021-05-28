@@ -12,6 +12,7 @@
 #define IS_FILE(entry) (entry)->d_type == DT_REG
 #define IS_CURRENT_DIR(entry) strcmp((entry)->d_name, ".") == 0
 #define IS_PARENT_DIR(entry) strcmp((entry)->d_name, "..") == 0
+const float EXPAND_FACTOR = 1.5f;
 
 sock_reader::sock_reader(const int sock, bool keepListening) : sock(sock), readLen(0), handledLen(0), offset(0),
                                                                curLen(0), maxReadLen(BUF_SIZE),
@@ -96,11 +97,11 @@ void resource::buildResourceTable(const std::string &root) {
     }
 }
 
-bool resource::isStaticResource(std::string &path) {
+bool resource::isStaticResource(const std::string &path) {
     return mResources.find(path) != mResources.end();
 }
 
-std::string resource::getFullPath(std::string path) {
+std::string resource::getFullPath(const std::string& path) {
 #ifdef _WIN32
     replace_char(path, '/', '\\');
 #endif
@@ -121,4 +122,57 @@ void makeRelativePath(std::string &path, const int prefixLen) {
 #ifdef _WIN32
     replace_char(path, '\\', '/');
 #endif
+}
+
+
+raw_data::raw_data(int capacity) : mCapacity(capacity) {
+    mData = new char[mCapacity];
+    mLen = 0;
+}
+
+raw_data& raw_data::append(const std::string &str) {
+    return append(str.data(), str.length());
+}
+
+raw_data& raw_data::append(const char *data) {
+    return append(data, strlen(data));
+}
+
+raw_data& raw_data::append(const int data) {
+    return append(std::to_string(data));
+}
+
+raw_data& raw_data::append(const char *data, int len) {
+    if(mLen + len > mCapacity) {
+        mCapacity = static_cast<int>(EXPAND_FACTOR * mCapacity);
+        auto newData = new char[mCapacity];
+        memcpy(newData, data, mLen);
+        delete mData;
+        mData = newData;
+    }
+    memcpy(mData + mLen, data, len);
+    mLen += len;
+    return *this;
+}
+
+raw_data& raw_data::operator=(raw_data &&other) noexcept{
+    if(this == &other) {
+        return *this;
+    }
+    mLen = other.mLen;
+    mCapacity = other.mCapacity;
+    mData = other.mData;
+    other.mData = nullptr;
+    return *this;
+}
+
+raw_data::raw_data(raw_data &&other) noexcept{
+    mLen = other.mLen;
+    mCapacity = other.mCapacity;
+    mData = other.mData;
+    other.mData = nullptr;
+}
+
+raw_data::~raw_data() {
+    delete mData;
 }

@@ -129,15 +129,20 @@ void response_header::setProtocol(const std::string& protocol) {
     mProtocol = protocol;
 }
 
-void response_header::write(int clnt_sock) {
-    std::string header_str;
-    header_str.append(mProtocol).append(" ").append(to_string(mStatusCode)).append(" ").append(STATUS_MESSAGE[mStatusCode]);
+raw_data response_header::getRawData() const {
+    raw_data rawData;
+    rawData.append(mProtocol).append(" ").append(mStatusCode).append(" ").append(STATUS_MESSAGE[mStatusCode]);
     std::map<std::string, std::string>::iterator iter;
-    for(iter = mHeaders.begin(); iter != mHeaders.end(); iter++){
-        header_str.append(CRLF).append(iter->first).append(": ").append(iter->second);
+    for(auto iter = mHeaders.begin(); iter != mHeaders.end(); iter++){
+        rawData.append(CRLF).append(iter->first).append(": ").append(iter->second);
     }
-    header_str.append(CRLF).append(CRLF);
-    ::write(clnt_sock, header_str.data(), header_str.length());
+    rawData.append(CRLF).append(CRLF);
+    return rawData;
+}
+
+void response_header::write(int clnt_sock) {
+    auto rawData = getRawData();
+    ::write(clnt_sock, rawData.data(), rawData.length());
 }
 
 

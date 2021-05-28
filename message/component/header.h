@@ -51,6 +51,7 @@ class response_header : public header {
 public:
     void setStatusCode(int code);
     void setProtocol(const std::string& protocol);
+    raw_data getRawData() const;
 private:
     void write(int clnt_sock) override;
 

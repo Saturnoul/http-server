@@ -11,6 +11,7 @@
 #include "../message/http/HttpRequest.h"
 #include "../message/http/HttpResponse.h"
 
+
 typedef std::function<void(const HttpRequest&, HttpResponse&)> handler_type;
 
 class http_server_plugin {
@@ -20,11 +21,13 @@ public:
     static void setStaticPath(const std::string& path);
 
 public:
+    void handleRequest(const HttpRequest& request, HttpResponse& response);
+    void handleRequest(int clnt_sock);
+    static bool isStaticResource(const std::string& method, const std::string& path);
+    static bool isStaticResource(const HttpRequest& request);
+    static void handleStaticResource(const std::string& path, HttpResponse& response);
     void handleHttpRequest(const HttpRequest& request, HttpResponse& response);
-    void handleHttpRequest(const HttpRequest& request, int clnt_sock);
-    static bool isStaticResource(std::string& method, std::string& path);
-    static void handleStaticResource(std::string& path, HttpResponse& response);
-    bool isPathMapped(std::string& method, std::string& path);
+    bool isPathMapped(const std::string& method, const std::string& path);
 
 protected:
     void setHandler(const std::string& method, const std::string& path, const handler_type& handler);
@@ -41,13 +44,12 @@ private:
 class http_connection : public connection{
 public:
     http_connection(int clnt_sock);
-    ~http_connection() override;
 public:
     bool read(server* pServer) override;
 
 private:
     int mOffset = 0;
-    HttpRequest* mRequest;
+    static ThreadPool* THREAD_POOL;
 };
 
 

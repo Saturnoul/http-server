@@ -6,6 +6,8 @@
 #define HTTP_WEBSOCKETMESSAGE_H
 
 #include "../http/HttpRequest.h"
+#include "../component/header.h"
+
 
 enum class WebSocketOp : unsigned char {
     CONTINUE = 0,

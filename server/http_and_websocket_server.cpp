@@ -49,10 +49,11 @@ bool http_and_websocket_connection::read(server *pServer) {
                 complex_server->handleHandshake(handshake);
                 isMessage = true;
             }else {
-                complex_server->handleHttpRequest(*request, clnt_sock);
+                DefaultHttpResponse response(clnt_sock);
+                complex_server->handleRequest(*request, response);
                 shouldKeepConnection = false;
 //                    threadPool.enqueue([this, clnt_sock](const HttpRequest& request) {
-//                        handleHttpRequest(request, clnt_sock);
+//                        handleRequest(request, clnt_sock);
 //                    }, std::move(request));
             }
             SAFE_DELETE(mRequest)

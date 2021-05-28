@@ -12,18 +12,22 @@ public:
     explicit HttpResponse(int clnt_sock);
 public:
     void setStatusCode(int code);
-    void setBody(body* b);
+    void setBody(void* data, int len);
+    raw_data getRawData();
     void send();
-    void end();
+    void end() const;
 
 private:
-    void directWriteBody(char* data, int len) const;
-    void directoryWriteHeader() const;
+    void directlyWriteBody(char* data, int len) const;
+    void directlyWriteHeader() const;
+    void checkHeader();
 protected:
     void setProtocol(const std::string& protocol);
 
 private:
     const int clnt_sock;
+    raw_data mRawData;
+    bool mBodySet;
 
     friend class http_server_plugin;
 };

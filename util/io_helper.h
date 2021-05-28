@@ -46,8 +46,8 @@ public:
     static void init(const std::string& resource_root);
 
 public:
-    bool isStaticResource(std::string& path);
-    std::string getFullPath(std::string path);
+    bool isStaticResource(const std::string& path);
+    std::string getFullPath(const std::string& path);
 private:
     resource();
     explicit resource(const std::string& root);
@@ -57,6 +57,39 @@ private:
     std::set<std::string> mResources;
 
     static resource* INSTANCE;
+};
+
+
+class raw_data {
+public:
+    explicit raw_data(int capacity = 100);
+    raw_data(raw_data&& other) noexcept ;
+    ~raw_data();
+
+public:
+    raw_data& append(const std::string& str);
+    raw_data& append(const char* data);
+    raw_data& append(const int data);
+    raw_data& append(const char* data, int len);
+
+public:
+    const char* data() const {
+        return mData;
+    }
+    const int length() const {
+        return mLen;
+    }
+
+    void clear(){
+        mData = nullptr;
+    }
+
+public:
+    raw_data& operator=(raw_data&& other) noexcept ;
+private:
+    char* mData;
+    int mLen;
+    int mCapacity;
 };
 
 std::string joinPath(const std::string& prefix, const std::string& posix);
