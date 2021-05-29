@@ -7,7 +7,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <sys/socket.h>
-#include <fcntl.h>
 
 
 server &server::ip(in_addr_t ip) {
@@ -47,58 +46,6 @@ server::server() {
     memset(&address, 0, sizeof(address));
 }
 
-void server::start_with_epoll() {
-    int clnt_sock = -1;
-    sockaddr_in clnt_addr{};
-    socklen_t clnt_addr_size = sizeof(clnt_addr);
-
-    int epfd = epoll_create(EPOLL_SIZE);
-    auto* epoll_events = static_cast<epoll_event *>(malloc(sizeof(epoll_event) * EPOLL_SIZE));
-
-    int event_cnt = 0;
-    epoll_event event{};
-
-    event.events = EPOLLIN;
-    event.data.fd = serv_socket;
-    epoll_ctl(epfd, EPOLL_CTL_ADD, serv_socket, &event);
-
-    while (true) {
-        event_cnt = epoll_wait(epfd, epoll_events, EPOLL_SIZE, EPOLL_TIMEOUT);
-//        if (event_cnt == -1) {
-//            break;
-//        }
-        for (int i = 0; i < event_cnt; i++) {
-            auto event = epoll_events[i];
-            if (event.data.fd == serv_socket) {
-                clnt_sock = accept(serv_socket, (struct sockaddr *) &clnt_addr, &clnt_addr_size);
-                SetBlock(clnt_sock, false);
-                event.events = EPOLLIN | EPOLLET;
-                event.data.fd = clnt_sock;
-                epoll_ctl(epfd, EPOLL_CTL_ADD, clnt_sock, &event);
-            } else {
-                clnt_sock = event.data.fd;
-                epoll_connection_flag flag {false, false};
-                std::cout << "Connection come: " << clnt_sock << std::endl;
-                handle_connection_epoll(clnt_sock, event.events, flag);
-                if(flag.listen_for_out) {
-                    std::cout << "Modify mode: " << std::endl;
-                    event.events = EPOLLOUT;
-                    event.data.fd = clnt_sock;
-                    epoll_ctl(epfd, EPOLL_CTL_MOD, clnt_sock, &event);
-                }
-                if(flag.remove) {
-                    std::cout << "Delete: " << std::endl;
-                    epoll_ctl(epfd, EPOLL_CTL_DEL, clnt_sock, &event);
-                    close(clnt_sock);
-                }
-            }
-        }
-    }
-    close(epfd);
-    close(serv_socket);
-    delete epoll_events;
-}
-
 void server::start_with_thread_pool() {
     int clnt_sock = -1;
     sockaddr_in clnt_addr{};
@@ -119,40 +66,8 @@ void server::start_with_custom() {
     std::cout << "You need to implement your custom starter" << std::endl;
 }
 
-void server::handle_connection_epoll(int clnt_sock, uint32_t events, epoll_connection_flag& flag) {
-    std::cout << "You need to implement your starter" << std::endl;
-}
-
 void server::handle_connection_thread(int clnt_sock) {
     std::cout << "You need to implement your starter" << std::endl;
-}
-
-bool server::SetBlock(int sock,bool isblock)
-{
-    int re = 0;
-//通过宏区分windows和linux，如果是windows64位程序判断 _WIN64宏
-#ifdef WIN32
-    unsigned long ul = 0;
-	if(!isblock) ul = 1;
-	re = ioctlsocket(sock, FIONBIO, (unsigned long*)&ul);
-#else
-    //先取到现有描述符属性，保证本次更改不变动原有属性
-    int flags = fcntl(sock, F_GETFL, 0);
-    if (flags < 0) {
-        return false;
-    }
-    if(isblock)
-    {
-        flags = flags & ~O_NONBLOCK;
-    }
-    else
-    {
-        flags = flags | O_NONBLOCK;
-    }
-    re = fcntl(sock, F_SETFL, flags);
-#endif
-    if (re != 0) return false;
-    return true;
 }
 
 
@@ -164,7 +79,7 @@ bool connection::read(server* srv) {
     return false;
 }
 
-connection::connection(int clnt_sock) : clnt_sock(clnt_sock){
+connection::connection(int clnt_sock, int epfd) : clnt_sock(clnt_sock), mEpollFd(epfd){
     mRequest = nullptr;
     mReadyToWrite = false;
     mData = nullptr;
@@ -173,22 +88,48 @@ connection::connection(int clnt_sock) : clnt_sock(clnt_sock){
     mWrittenLen = 0;
 }
 
-bool connection::write() {
+void connection::writeToClient() {
     int writeLen = ::send(clnt_sock, mData + mWrittenLen, mLen - mWrittenLen, MSG_DONTWAIT);
     if(writeLen > 0) {
         mWrittenLen += writeLen;
     }
-    return mWrittenLen == mLen;
+    if(mWrittenLen == mLen) {
+        clear();
+    }
 }
 
 bool connection::ready() const {
     return mReadyToWrite;
 }
 
+void connection::readFromClient(server* pServer) {
+    if(read(pServer)) {
+        listenForOut();
+    }
+}
+
+void connection::clear() const {
+    removeSelfListening();
+    removeSelfConnection(clnt_sock);
+}
+
 void connection::setData(const char* data, int len) {
     mData = data;
     mLen = len;
-    mReadyToWrite.store(true, std::memory_order_release);
+    writeToClient();
+    mReadyToWrite.store(true, std::memory_order_seq_cst);
+}
+
+void connection::removeSelfListening() const {
+    epoll_event event {};
+    epoll_ctl(mEpollFd, EPOLL_CTL_DEL, clnt_sock, &event);
+}
+
+void connection::listenForOut() const {
+    epoll_event event {};
+    event.events = EPOLLOUT | EPOLLET;
+    event.data.fd = clnt_sock;
+    epoll_ctl(mEpollFd, EPOLL_CTL_MOD, clnt_sock, &event);
 }
 
 bool connection::writeFile() {
@@ -196,6 +137,7 @@ bool connection::writeFile() {
 }
 
 connection::~connection() {
+    close(clnt_sock);
     delete mRequest;
     mFp && fclose(mFp);
 }

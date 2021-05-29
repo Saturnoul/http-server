@@ -43,7 +43,7 @@ private:
 
 class http_connection : public connection{
 public:
-    http_connection(int clnt_sock);
+    http_connection(int clnt_sock, int epfd);
 public:
     bool read(server* pServer) override;
 

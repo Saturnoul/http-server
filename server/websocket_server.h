@@ -34,7 +34,7 @@ private:
 
 class websocket_connection : public connection{
 public:
-    websocket_connection(int clnt_sock);
+    websocket_connection(int clnt_sock, int epfd);
 public:
     bool read(server* pServer) override;
 private:

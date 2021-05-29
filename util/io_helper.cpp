@@ -146,7 +146,7 @@ raw_data& raw_data::append(const char *data, int len) {
     if(mLen + len > mCapacity) {
         mCapacity = static_cast<int>(EXPAND_FACTOR * mCapacity);
         auto newData = new char[mCapacity];
-        memcpy(newData, data, mLen);
+        memcpy(newData, mData, mLen);
         delete mData;
         mData = newData;
     }

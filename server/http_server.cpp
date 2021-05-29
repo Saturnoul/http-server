@@ -100,7 +100,7 @@ void http_server::handle_connection_thread(int clnt_sock) {
 
 ThreadPool* http_connection::THREAD_POOL = new ThreadPool(THREAD_POOL_SIZE);
 
-http_connection::http_connection(int clnt_sock) : connection(clnt_sock) {
+http_connection::http_connection(int clnt_sock, int epfd) : connection(clnt_sock, epfd) {
     mRequest = new HttpRequest;
 }
 
@@ -118,7 +118,7 @@ bool http_connection::read(server* pServer) {
             DefaultHttpResponse response(clnt_sock);
             if(pHttpServer->isStaticResource(request)) {
                 pHttpServer->handleStaticResource(request.getPath(), response);
-                response.end();
+                clear();
             }else {
                 pHttpServer->handleHttpRequest(request, response);
                 auto rawData = response.getRawData();

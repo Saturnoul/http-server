@@ -4,7 +4,7 @@
 
 #include "websocket_server.h"
 
-websocket_connection::websocket_connection(int clnt_sock) : connection(clnt_sock) {
+websocket_connection::websocket_connection(int clnt_sock, int epfd) : connection(clnt_sock, epfd) {
     mOffset = 0;
     isHandshake = true;
     mRequest = new WebsocketHandshake(clnt_sock);
@@ -12,7 +12,6 @@ websocket_connection::websocket_connection(int clnt_sock) : connection(clnt_sock
 
 bool websocket_connection::read(server* pServer) {
     int readLen = 0;
-    bool shouldKeepConnection = true;
     int len = ::recv(clnt_sock, mBuf + mOffset, SERVER_BUF_SIZE - mOffset, MSG_DONTWAIT);
     if(len <= 0){
         return true;
@@ -31,14 +30,17 @@ bool websocket_connection::read(server* pServer) {
         auto message = reinterpret_cast<WebsocketMessage*>(mRequest);
         readLen = message->read(mBuf, len + mOffset);
         if(message->completed()) {
-            shouldKeepConnection = pWsServer->handleMessage(*message);
+            if(pWsServer->handleMessage(*message)) {
+                clear();
+                return false;
+            }
             message->reset();
         }
     }
     mOffset = len - readLen;
     memcpy(mBuf, mBuf + readLen, mOffset);
 
-    return shouldKeepConnection;
+    return false;
 }
 
 

@@ -12,9 +12,9 @@
 
 class http_and_websocket_server;
 
-class http_and_websocket_connection : connection{
+class http_and_websocket_connection : public connection{
 public:
-    http_and_websocket_connection(int clnt_sock);
+    http_and_websocket_connection(int clnt_sock, int epfd);
 public:
 
     bool read(server* pServer) override;
@@ -22,6 +22,8 @@ private:
     bool isRequestTypeConfirmed;
     int mOffset;
     bool isMessage;
+
+    static ThreadPool* THREAD_POOL;
 };
 
 class http_and_websocket_server : public nonblocking_server<http_and_websocket_connection>, public http_server_plugin, public websocket_server_plugin{
