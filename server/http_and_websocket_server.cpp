@@ -15,15 +15,15 @@ http_and_websocket_connection::http_and_websocket_connection(int clnt_sock, int 
     mRequest = nullptr;
 }
 
-ThreadPool *http_and_websocket_connection::THREAD_POOL = new ThreadPool(THREAD_POOL_SIZE);
+ThreadPool http_and_websocket_connection::THREAD_POOL(THREAD_POOL_SIZE);
 
-bool http_and_websocket_connection::read(server *pServer) {
+void http_and_websocket_connection::read(server *pServer) {
     int readLen = 0;
     bool completed = false;
     int len = ::recv(clnt_sock, mBuf + mOffset, SERVER_BUF_SIZE - mOffset, MSG_DONTWAIT);
 
     if (len <= 0) {
-        return false;
+        return;
     }
 
     if (!isRequestTypeConfirmed) {
@@ -38,8 +38,7 @@ bool http_and_websocket_connection::read(server *pServer) {
         readLen = msg->read(mBuf, len);
         if (msg->completed()) {
             if(complex_server->handleMessage(*msg)) {
-                clear();
-                return false;
+                return;
             }
             msg->reset();
         }
@@ -54,18 +53,18 @@ bool http_and_websocket_connection::read(server *pServer) {
                 complex_server->handleHandshake(handshake);
                 isMessage = true;
             } else {
-                completed = true;
-                THREAD_POOL->enqueue([this, complex_server](const HttpRequest &request) {
+                THREAD_POOL.enqueue([this, complex_server](const HttpRequest &request) {
                     DefaultHttpResponse response(clnt_sock);
-                    if (http_server_plugin::isStaticResource(request)) {
-                        http_server_plugin::handleStaticResource(request.getPath(), response);
-                        clear();
-                    } else {
+                    if(complex_server->isStaticResource(request)) {
+//                pHttpServer->handleStaticResource(request.getPath(), response);
+                        auto file = http_server_plugin::getResourceFile(request.getPath());
+                        setFile(file);
+                    }else {
                         complex_server->handleHttpRequest(request, response);
-                        auto rawData = response.getRawData();
-                        setData(rawData.data(), rawData.length());
-                        rawData.clear();
                     }
+                    auto rawData = response.getRawData();
+                    setData(rawData.data(), rawData.length());
+                    rawData.clear();
                 }, std::move(*request));
             }
             SAFE_DELETE(mRequest)
@@ -73,5 +72,4 @@ bool http_and_websocket_connection::read(server *pServer) {
     }
     mOffset = len - readLen;
     memcpy(mBuf, mBuf + readLen, mOffset);
-    return completed;
 }

@@ -10,11 +10,11 @@ websocket_connection::websocket_connection(int clnt_sock, int epfd) : connection
     mRequest = new WebsocketHandshake(clnt_sock);
 }
 
-bool websocket_connection::read(server* pServer) {
+void websocket_connection::read(server* pServer) {
     int readLen = 0;
     int len = ::recv(clnt_sock, mBuf + mOffset, SERVER_BUF_SIZE - mOffset, MSG_DONTWAIT);
     if(len <= 0){
-        return true;
+        return;
     }
     auto pWsServer = dynamic_cast<websocket_server*>(pServer);
     if(isHandshake) {
@@ -31,16 +31,13 @@ bool websocket_connection::read(server* pServer) {
         readLen = message->read(mBuf, len + mOffset);
         if(message->completed()) {
             if(pWsServer->handleMessage(*message)) {
-                clear();
-                return false;
+                return;
             }
             message->reset();
         }
     }
     mOffset = len - readLen;
     memcpy(mBuf, mBuf + readLen, mOffset);
-
-    return false;
 }
 
 
@@ -117,5 +114,5 @@ bool websocket_server_plugin::handleMessage(WebsocketMessage &msg) {
             handler.onClose(session);
             break;
     }
-    return !complete;
+    return complete;
 }

@@ -36,10 +36,9 @@ class websocket_connection : public connection{
 public:
     websocket_connection(int clnt_sock, int epfd);
 public:
-    bool read(server* pServer) override;
+    void read(server* pServer) override;
 private:
     int mOffset;
-    void* mRequest;
     bool isHandshake;
 };
 

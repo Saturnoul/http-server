@@ -2,7 +2,7 @@
 #include <iostream>
 
 int main() {
-    http_and_websocket_server s;
+    nonblocking_http_server s;
     s.ip(INADDR_ANY)
     .port(9119)
     .build();
@@ -21,7 +21,7 @@ int main() {
         std::cout << session.getId() << " has left" << std::endl;
     };
 
-    s.addEndPoint("/saturn", handler);
+//    s.addEndPoint("/saturn", handler);
 
     s.setStaticPath("/home/saturn/Pictures");
 
@@ -34,8 +34,8 @@ int main() {
     });
 
     s.post("/login", [](const HttpRequest& request, HttpResponse& response){
-        auto* jsonData = dynamic_cast<JsonData*>(request.getBody());
-        auto name = jsonData->mJson["name"].asString();
+//        auto* jsonData = dynamic_cast<JsonData*>(request.getBody());
+//        auto name = jsonData->mJson["name"].asString();
         auto& session = request.getSession();
         session.set("name", "luohao");
     });

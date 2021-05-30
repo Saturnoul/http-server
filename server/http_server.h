@@ -25,6 +25,7 @@ public:
     void handleRequest(int clnt_sock);
     static bool isStaticResource(const std::string& method, const std::string& path);
     static bool isStaticResource(const HttpRequest& request);
+    static FILE* getResourceFile(const std::string& path);
     static void handleStaticResource(const std::string& path, HttpResponse& response);
     void handleHttpRequest(const HttpRequest& request, HttpResponse& response);
     bool isPathMapped(const std::string& method, const std::string& path);
@@ -45,11 +46,11 @@ class http_connection : public connection{
 public:
     http_connection(int clnt_sock, int epfd);
 public:
-    bool read(server* pServer) override;
+    void read(server* pServer) override;
 
 private:
     int mOffset = 0;
-    static ThreadPool* THREAD_POOL;
+    static ThreadPool THREAD_POOL;
 };
 
 

@@ -109,13 +109,15 @@ body_type request_header::getContentType() {
 }
 
 int request_header::read(const char *buf, int len) {
-    header_str.append(buf, len);
     auto headerEnd = BMSearch(buf, len, HEADER_BODY_SEPARATOR, 4);
     if (headerEnd != -1) {
+        header_str.append(buf, headerEnd);
         auto cb = std::bind(&request_header::addHeader, this, placeholders::_1);
         split(header_str.substr(0, headerEnd), "\r\n", cb);
         mComplete = true;
         return headerEnd + 4;
+    }else {
+        header_str.append(buf, len);
     }
     return len;
 }
@@ -137,7 +139,7 @@ raw_data response_header::getRawData() const {
         rawData.append(CRLF).append(iter->first).append(": ").append(iter->second);
     }
     rawData.append(CRLF).append(CRLF);
-    return rawData;
+    return std::move(rawData);
 }
 
 void response_header::write(int clnt_sock) {

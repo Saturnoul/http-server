@@ -88,13 +88,14 @@ form_file::form_file(string &name) : mName(name) {
 
 
 void form_file::write(const char *buf, const int len) {
-    if (mCurLen + len > mCapacity) {
+    int requiredLen = mCurLen + len;
+    if (requiredLen > mCapacity) {
         int newCapacity = mCapacity * FORM_FILE_EXPAND_FACTOR;
-        auto *newData = new char[newCapacity];
+        mCapacity = newCapacity > requiredLen ? newCapacity : requiredLen;
+        auto *newData = new char[mCapacity];
         memcpy(newData, mData, mCurLen);
         delete[] mData;
         mData = newData;
-        mCapacity = newCapacity;
     }
     memcpy(mData + mCurLen, buf, len);
     mCurLen += len;
@@ -215,7 +216,7 @@ int FormData::read(const char *buf, int len) {
             if (isFile(metaLine)) {
                 auto name = getName(metaLine);
                 auto fileName = getFileName(metaLine);
-                if (next_line(str, p).empty()) {
+                if (next_n_line(str, p, 2).empty()) {
                     break;
                 }
                 mFiles[name] = form_file(fileName);

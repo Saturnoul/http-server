@@ -38,7 +38,7 @@ void server::build() {
     if (bind(serv_socket, (struct sockaddr *) &address, sizeof(address)) < 0) {
         perror("In bind");
     }
-    listen(serv_socket, 1000);
+    listen(serv_socket, SERVER_WATING_SIZE);
     std::cout << "Listening on port " << ntohs(address.sin_port) << std::endl;
 }
 
@@ -75,69 +75,67 @@ bool connection::operator<(const connection &conn) const {
     return this->clnt_sock < conn.clnt_sock;
 }
 
-bool connection::read(server* srv) {
-    return false;
-}
-
 connection::connection(int clnt_sock, int epfd) : clnt_sock(clnt_sock), mEpollFd(epfd){
-    mRequest = nullptr;
-    mReadyToWrite = false;
-    mData = nullptr;
-    mFp = nullptr;
     mLen = 0;
     mWrittenLen = 0;
+    mDataComplete = false;
 }
 
-void connection::writeToClient() {
+bool connection::writeData() {
     int writeLen = ::send(clnt_sock, mData + mWrittenLen, mLen - mWrittenLen, MSG_DONTWAIT);
     if(writeLen > 0) {
         mWrittenLen += writeLen;
     }
-    if(mWrittenLen == mLen) {
-        clear();
+    return mWrittenLen == mLen;
+}
+
+bool connection::write() {
+    if(mDataComplete && mFp) {
+        return writeFile();
     }
-}
-
-bool connection::ready() const {
-    return mReadyToWrite;
-}
-
-void connection::readFromClient(server* pServer) {
-    if(read(pServer)) {
-        listenForOut();
+    if((mDataComplete = writeData())) {
+        mLen = mWrittenLen = 0;
     }
-}
-
-void connection::clear() const {
-    removeSelfListening();
-    removeSelfConnection(clnt_sock);
+    return mDataComplete && !mFp;
 }
 
 void connection::setData(const char* data, int len) {
     mData = data;
     mLen = len;
-    writeToClient();
-    mReadyToWrite.store(true, std::memory_order_seq_cst);
-}
-
-void connection::removeSelfListening() const {
-    epoll_event event {};
-    epoll_ctl(mEpollFd, EPOLL_CTL_DEL, clnt_sock, &event);
+    listenForOut();
 }
 
 void connection::listenForOut() const {
     epoll_event event {};
-    event.events = EPOLLOUT | EPOLLET;
+    event.events = EPOLLOUT;
     event.data.fd = clnt_sock;
     epoll_ctl(mEpollFd, EPOLL_CTL_MOD, clnt_sock, &event);
 }
 
-bool connection::writeFile() {
+void connection::setFile(FILE *fp) {
+    mFp = fp;
+}
 
+bool connection::writeFile() {
+    if(mLen == 0) {
+        mLen = fread(mBuf, 1, SERVER_BUF_SIZE, mFp);
+        if(mLen <= 0) {
+            return true;
+        }
+    }
+    int writeLen = ::send(clnt_sock, mBuf + mWrittenLen, mLen - mWrittenLen, MSG_DONTWAIT);
+    if(writeLen > 0){
+        mWrittenLen += writeLen;
+    }
+    if(mWrittenLen == mLen) {
+        mLen = mWrittenLen = 0;
+    }
+    return false;
 }
 
 connection::~connection() {
-    close(clnt_sock);
     delete mRequest;
+    close(clnt_sock);
     mFp && fclose(mFp);
 }
+

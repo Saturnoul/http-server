@@ -37,6 +37,10 @@ void http_server_plugin::handleRequest(int clnt_sock) {
     handleRequest(request, response);
 }
 
+FILE *http_server_plugin::getResourceFile(const std::string &path) {
+    return fopen(resource::getInstance()->getFullPath(path).c_str(), "r");
+}
+
 void http_server_plugin::setHandler(const std::string &method, const std::string &path, const handler_type &handler) {
     mRouter[method][path] = handler;
 }
@@ -66,7 +70,7 @@ void http_server_plugin::handleStaticResource(const std::string &path, HttpRespo
     char mBuf[READ_BUF_SIZE];
     int readLen = 0;
 
-    FILE* fp = fopen(resource::getInstance()->getFullPath(path).c_str(), "r");
+    FILE* fp = getResourceFile(path);
     response.directlyWriteHeader();
     while ((readLen = fread(mBuf, 1, READ_BUF_SIZE, fp)) > 0) {
         response.directlyWriteBody(mBuf, readLen);
@@ -98,37 +102,37 @@ void http_server::handle_connection_thread(int clnt_sock) {
 }
 
 
-ThreadPool* http_connection::THREAD_POOL = new ThreadPool(THREAD_POOL_SIZE);
+ThreadPool http_connection::THREAD_POOL(THREAD_POOL_SIZE);
 
 http_connection::http_connection(int clnt_sock, int epfd) : connection(clnt_sock, epfd) {
     mRequest = new HttpRequest;
 }
 
-bool http_connection::read(server* pServer) {
+void http_connection::read(server* pServer) {
     int len = ::recv(clnt_sock, mBuf + mOffset, SERVER_BUF_SIZE - mOffset, MSG_DONTWAIT);
     if(len <= 0){
-        return false;
+        return;
     }
     auto request = reinterpret_cast<HttpRequest*>(mRequest);
     int readLen = request->read(mBuf, len);
     bool completed = request->completed();
     if(completed) {
         auto pHttpServer = dynamic_cast<nonblocking_http_server*>(pServer);
-        THREAD_POOL->enqueue([this, pHttpServer](const HttpRequest& request){
+        THREAD_POOL.enqueue([this, pHttpServer](const HttpRequest& request){
             DefaultHttpResponse response(clnt_sock);
             if(pHttpServer->isStaticResource(request)) {
-                pHttpServer->handleStaticResource(request.getPath(), response);
-                clear();
+//                pHttpServer->handleStaticResource(request.getPath(), response);
+                auto file = http_server_plugin::getResourceFile(request.getPath());
+                setFile(file);
             }else {
                 pHttpServer->handleHttpRequest(request, response);
-                auto rawData = response.getRawData();
-                setData(rawData.data(), rawData.length());
-                rawData.clear();
             }
+            auto rawData = response.getRawData();
+            setData(rawData.data(), rawData.length());
+            rawData.clear();
         }, std::move(*request));
     } else {
         mOffset = len - readLen;
         memcpy(mBuf, mBuf + readLen, mOffset);
     }
-    return completed;
 }
