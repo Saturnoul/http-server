@@ -9,7 +9,6 @@
 void HttpResponse::send() {
     checkHeader();
     write(clnt_sock, mRawData.data(), mRawData.length());
-    end();
 }
 
 void HttpResponse::directlyWriteBody(char *data, int len) const {
